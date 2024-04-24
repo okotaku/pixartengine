@@ -32,7 +32,7 @@ $ diffengine train ${CONFIG_FILE}
 $ NPROC_PER_NODE=${GPU_NUM} diffengine train ${CONFIG_FILE}
 
 # Example.
-$ diffengine train stable_diffusion_v15_dreambooth_lora_dog
+$ diffengine train pixart_alpha_512_dreambooth_lora_dog
 ```
 
 ## Inference with diffusers
@@ -43,32 +43,36 @@ Once you have trained a model, specify the path to the saved model and utilize i
 from pathlib import Path
 
 import torch
-from diffusers import DiffusionPipeline
+from diffusers import PixArtAlphaPipeline, AutoencoderKL
 from peft import PeftModel
 
-checkpoint = Path('work_dirs/stable_diffusion_v15_dreambooth_lora_dog/step999')
+checkpoint = Path('work_dirs/pixart_alpha_512_dreambooth_lora_dog/step999')
 prompt = 'A photo of sks dog in a bucket'
 
-pipe = DiffusionPipeline.from_pretrained(
-    'runwayml/stable-diffusion-v1-5', torch_dtype=torch.float16)
-pipe.to('cuda')
-pipe.unet = PeftModel.from_pretrained(pipe.unet, checkpoint / "unet", adapter_name="default")
-if (checkpoint / "text_encoder").exists():
-    pipe.text_encoder = PeftModel.from_pretrained(
-        pipe.text_encoder, checkpoint / "text_encoder", adapter_name="default"
-    )
+vae = AutoencoderKL.from_pretrained(
+    'stabilityai/sd-vae-ft-ema',
+    torch_dtype=torch.bfloat16,
+)
+pipe = PixArtAlphaPipeline.from_pretrained(
+    "PixArt-alpha/PixArt-XL-2-512x512",
+    vae=vae,
+    torch_dtype=torch.bfloat16,
+).to("cuda")
+pipe.transformer = PeftModel.from_pretrained(pipe.transformer, checkpoint / "transformer", adapter_name="default")
 
-image = pipe(
+img = pipe(
     prompt,
-    num_inference_steps=50,
+    width=512,
+    height=512,
+    num_inference_steps=20,
 ).images[0]
-image.save('demo.png')
+img.save("demo.png")
 ```
 
 You can see more details on [Run DreamBooth docs](../../docs/source/run_guides/run_dreambooth.md#inference-with-diffusers).
 
 ## Results Example
 
-#### stable_diffusion_v15_dreambooth_lora_dog
+#### pixart_alpha_512_dreambooth_lora_dog
 
-![examplev15](https://github.com/okotaku/diffengine/assets/24734142/f9c2430c-cee7-43cf-868f-35c6301dc573)
+![examplev15](<>)

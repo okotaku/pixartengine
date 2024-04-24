@@ -1,27 +1,35 @@
-# Stable Diffusion LoRA Training
+# PixArt LoRA Training
 
-You can also check [`configs/lora/README.md`](https://github.com/okotaku/diffengine/tree/main/diffengine/configs/lora/README.md) file.
+You can also check [`configs/lora/README.md`](https://github.com/okotaku/pixartengine/tree/main/diffengine/configs/lora/README.md) file.
 
 ## Configs
 
-All configuration files are placed under the [`configs/lora`](https://github.com/okotaku/diffengine/tree/main/diffengine/configs/lora/) folder.
+All configuration files are placed under the [`configs/lora`](https://github.com/okotaku/pixartengine/tree/main/diffengine/configs/lora/) folder.
 
-Following is the example config from the stable_diffusion_v15_lora_pokemon_blip config file in [`configs/lora/stable_diffusion_v15_lora_pokemon_blip.py`](https://github.com/okotaku/diffengine/tree/main/diffengine/configs/lora/stable_diffusion_v15_lora_pokemon_blip.py):
+Following is the example config from the pixart_alpha_512_lora_pokemon config file in [`configs/lora/pixart_alpha_512_lora_pokemon.py`](https://github.com/okotaku/pixartengine/tree/main/diffengine/configs/lora/pixart_alpha_512_lora_pokemon.py):
 
 ```
 from mmengine.config import read_base
 
-from diffengine.engine.hooks import PeftSaveHook, VisualizationHook
+from diffengine.engine.hooks import PeftSaveHook
 
 with read_base():
-    from .._base_.datasets.pokemon_blip import *
+    from .._base_.datasets.pokemon import *
     from .._base_.default_runtime import *
-    from .._base_.models.stable_diffusion_v15_lora import *
-    from .._base_.schedules.stable_diffusion_50e import *
+    from .._base_.models.pixart_alpha_512_lora import *
+    from .._base_.schedules.diffusion_50e import *
+
+model.update(weight_dtype="bf16",
+             enable_vb_loss=False)
 
 custom_hooks = [
-    dict(type=VisualizationHook, prompt=["yoda pokemon"] * 4),
-    dict(type=PeftSaveHook),  # Need to change from CheckpointHook
+    dict(type=VisualizationHook,
+         prompt=["yoda pokemon",
+                 "A group of Exeggcute",
+                 "A water dragon",
+                 "A cheerful pink Chansey holding an egg."]),
+    dict(type=PeftSaveHook),
+    dict(type=CompileHook),
 ]
 ```
 
@@ -33,7 +41,7 @@ Run LoRA training:
 # single gpu
 $ diffengine train ${CONFIG_FILE}
 # Example
-$ diffengine train stable_diffusion_v15_lora_pokemon_blip
+$ diffengine train pixart_alpha_512_lora_pokemon
 
 # multi gpus
 $ NPROC_PER_NODE=${GPU_NUM} diffengine train ${CONFIG_FILE}
@@ -47,20 +55,28 @@ Once you have trained a model, specify the path to the saved model and utilize i
 from pathlib import Path
 
 import torch
-from diffusers import DiffusionPipeline
+from diffusers import PixArtAlphaPipeline, AutoencoderKL
 from peft import PeftModel
 
-checkpoint = Path('work_dirs/stable_diffusion_v15_lora_pokemon_blip/step10450')
-prompt = 'yoda pokemon'
+checkpoint = Path('work_dirs/pixart_alpha_512_lora_pokemon/step20850')
+prompt = 'A water dragon'
 
-pipe = DiffusionPipeline.from_pretrained(
-    'runwayml/stable-diffusion-v1-5', torch_dtype=torch.float16)
-pipe.to('cuda')
-pipe.unet = PeftModel.from_pretrained(pipe.unet, checkpoint / "unet", adapter_name="default")
+vae = AutoencoderKL.from_pretrained(
+    'stabilityai/sd-vae-ft-ema',
+    torch_dtype=torch.bfloat16,
+)
+pipe = PixArtAlphaPipeline.from_pretrained(
+    "PixArt-alpha/PixArt-XL-2-512x512",
+    vae=vae,
+    torch_dtype=torch.bfloat16,
+).to("cuda")
+pipe.transformer = PeftModel.from_pretrained(pipe.transformer, checkpoint / "transformer", adapter_name="default")
 
-image = pipe(
+img = pipe(
     prompt,
-    num_inference_steps=50,
+    width=512,
+    height=512,
+    num_inference_steps=20,
 ).images[0]
-image.save('demo.png')
+img.save("demo.png")
 ```

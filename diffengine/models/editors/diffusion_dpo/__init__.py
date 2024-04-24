@@ -1,3 +1,3 @@
-from .diffusion_dpo import StableDiffusionDPO
+from .diffusion_dpo import PixArtDPO
 
-__all__ = ["StableDiffusionDPO"]
+__all__ = ["PixArtDPO"]

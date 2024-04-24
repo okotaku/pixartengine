@@ -11,7 +11,11 @@ from .processing import (
     RandomHorizontalFlip,
     TorchVisonTransformWrapper,
 )
-from .text_processing import AddConstantCaption, RandomTextDrop
+from .text_processing import (
+    AddConstantCaption,
+    RandomTextDrop,
+    T5TextPreprocess,
+)
 from .wrappers import RandomChoice
 
 __all__ = [
@@ -31,4 +35,5 @@ __all__ = [
     "DumpMaskedImage",
     "TorchVisonTransformWrapper",
     "ConcatMultipleImgs",
+    "T5TextPreprocess",
 ]

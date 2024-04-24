@@ -122,6 +122,8 @@ class HFDreamBoothDatasetPreComputeEmbs(HFDreamBoothDataset):
         device (str): Device used to compute embeddings. Defaults to 'cuda'.
         proportion_empty_prompts (float): The probabilities to replace empty
             text. Defaults to 0.0.
+        tokenizer_max_length (int): The max length of tokenizer.
+            Defaults to 120.
 
     """
 
@@ -132,6 +134,7 @@ class HFDreamBoothDatasetPreComputeEmbs(HFDreamBoothDataset):
                  model: str = "runwayml/stable-diffusion-v1-5",
                  device: str = "cuda",
                  proportion_empty_prompts: float = 0.0,
+                 tokenizer_max_length: int = 120,
                  **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -149,6 +152,7 @@ class HFDreamBoothDatasetPreComputeEmbs(HFDreamBoothDataset):
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             caption_column="text",
+            tokenizer_max_length=tokenizer_max_length,
         )
 
         del text_encoder, tokenizer
@@ -178,10 +182,14 @@ class HFDreamBoothDatasetPreComputeEmbs(HFDreamBoothDataset):
                 image = os.path.join(self.dataset_name, image)
             image = Image.open(image)
         image = image.convert("RGB")
+        use_empty_prompts = random.random() < self.proportion_empty_prompts
         result = {
             "img": image,
             "prompt_embeds": self.embed["prompt_embeds"][0] if (
-                random.random() < self.proportion_empty_prompts
+                use_empty_prompts
                 ) else self.embed["prompt_embeds"][1],
+            "attention_mask": self.embed["attention_mask"][0] if (
+                use_empty_prompts
+                ) else self.embed["attention_mask"][1],
         }
         return self.pipeline(result)

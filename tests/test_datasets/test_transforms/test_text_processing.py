@@ -5,6 +5,7 @@ from mmengine.registry import TRANSFORMS
 from diffengine.datasets import (
     AddConstantCaption,
     RandomTextDrop,
+    T5TextPreprocess,
 )
 
 
@@ -41,3 +42,22 @@ class TestAddConstantCaption(TestCase):
                                       constant_caption="in szn style"))
         data = trans(data)
         assert data["text"] == "a dog. in szn style"
+
+
+class TestT5TextPreprocess(TestCase):
+
+    def test_transform(self):
+        data = {
+            "text": "A dog",
+        }
+
+        # test transform
+        trans = TRANSFORMS.build(dict(type=T5TextPreprocess))
+        data = trans(data)
+        assert data["text"] == "a dog"
+
+        data = {
+            "text": "A dog in https://dummy.dummy",
+        }
+        data = trans(data)
+        assert data["text"] == "a dog in dummy. dummy"

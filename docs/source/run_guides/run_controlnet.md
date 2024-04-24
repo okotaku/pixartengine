@@ -1,12 +1,12 @@
 # Stable Diffusion ControlNet Training
 
-You can also check [`configs/controlnet/README.md`](https://github.com/okotaku/diffengine/tree/main/diffengine/configs/controlnet/README.md) file.
+You can also check [`configs/controlnet/README.md`](https://github.com/okotaku/pixartengine/tree/main/diffengine/configs/controlnet/README.md) file.
 
 ## Configs
 
-All configuration files are placed under the [`configs/controlnet`](https://github.com/okotaku/diffengine/tree/main/diffengine/configs/controlnet/) folder.
+All configuration files are placed under the [`configs/controlnet`](https://github.com/okotaku/pixartengine/tree/main/diffengine/configs/controlnet/) folder.
 
-Following is the example config from the stable_diffusion_v15_controlnet_fill50k config file in [`configs/controlnet/stable_diffusion_v15_controlnet_fill50k.py`](https://github.com/okotaku/diffengine/tree/main/diffengine/configs/controlnet/stable_diffusion_v15_controlnet_fill50k.py):
+Following is the example config from the stable_diffusion_v15_controlnet_fill50k config file in [`configs/controlnet/stable_diffusion_v15_controlnet_fill50k.py`](https://github.com/okotaku/pixartengine/tree/main/diffengine/configs/controlnet/stable_diffusion_v15_controlnet_fill50k.py):
 
 ```
 from mmengine.config import read_base

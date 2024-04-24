@@ -6,11 +6,11 @@ from diffengine.datasets.transforms import (
     PackInputs,
     RandomCrop,
     RandomHorizontalFlip,
+    T5TextPreprocess,
     TorchVisonTransformWrapper,
 )
 from diffengine.engine.hooks import (
     CompileHook,
-    MemoryFormatHook,
     PeftSaveHook,
     VisualizationHook,
 )
@@ -25,6 +25,7 @@ train_pipeline = [
          transform=torchvision.transforms.ToTensor),
     dict(type=TorchVisonTransformWrapper,
          transform=torchvision.transforms.Normalize, mean=[0.5], std=[0.5]),
+    dict(type=T5TextPreprocess),
     dict(type=PackInputs),
 ]
 train_dataloader = dict(
@@ -50,6 +51,5 @@ custom_hooks = [
         by_epoch=False,
         interval=100),
     dict(type=PeftSaveHook),
-    dict(type=MemoryFormatHook),
     dict(type=CompileHook),
 ]

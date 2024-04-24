@@ -17,8 +17,8 @@ class LCMEMAUpdateHook(Hook):
         model = runner.model
         if is_model_wrapper(model):
             model = model.module
-        self.src_model = model.unet
-        self.ema_model = model.target_unet
+        self.src_model = model.transformer
+        self.ema_model = model.target_transformer
 
     def after_train_iter(self,
                          runner: Runner,  # noqa

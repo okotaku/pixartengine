@@ -48,7 +48,7 @@ class TestPeftSaveHook(RunnerTestCase):
         hook.before_save_checkpoint(runner, checkpoint)
 
         assert Path(
-            osp.join(runner.work_dir, f"step{runner.iter}/unet",
+            osp.join(runner.work_dir, f"step{runner.iter}/transformer",
                      "adapter_model.safetensors")).exists()
         assert Path(
             osp.join(runner.work_dir, f"step{runner.iter}/text_encoder",
@@ -57,5 +57,5 @@ class TestPeftSaveHook(RunnerTestCase):
             osp.join(runner.work_dir, f"step{runner.iter}"))
 
         for key in checkpoint["state_dict"]:
-            assert key.startswith(("unet", "text_encoder"))
+            assert key.startswith(("transformer", "text_encoder"))
             assert "default" in key

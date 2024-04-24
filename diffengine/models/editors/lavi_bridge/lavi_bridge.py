@@ -2,27 +2,25 @@ from typing import Optional
 
 import numpy as np
 import torch
-from diffusers import StableDiffusionPipeline
+from diffusers import PixArtAlphaPipeline
 from diffusers.utils.torch_utils import randn_tensor
 from mmengine.registry import MODELS
 
-from diffengine.models.editors.stable_diffusion import StableDiffusion
+from diffengine.models.editors.pixart import PixArt
 
 
-class StableDiffusionLaViBridge(StableDiffusion):
+class PixArtLaViBridge(PixArt):
     """LaVi-Bridge.
 
     Args:
     ----
         adapter (dict): The adapter config.
-        max_length (int, optional): The max length. Defaults to 77.
 
     """
 
     def __init__(self,
                  *args,
                  adapter: dict,
-                 max_length: int | None = 77,
                  **kwargs) -> None:
 
         self.adapter_config = adapter
@@ -30,8 +28,6 @@ class StableDiffusionLaViBridge(StableDiffusion):
         super().__init__(
             *args,
             **kwargs)  # type: ignore[misc]
-        if max_length is not None:
-            self.tokenizer.model_max_length = max_length
         self.tokenizer.pad_token = "[PAD]"  # noqa: S105
 
     def prepare_model(self) -> None:
@@ -44,7 +40,7 @@ class StableDiffusionLaViBridge(StableDiffusion):
         super().prepare_model()
 
     @torch.no_grad()
-    def infer(self,
+    def infer(self,  # noqa: PLR0913
               prompt: list[str],
               negative_prompt: str | None = None,
               height: int = 512,
@@ -52,6 +48,8 @@ class StableDiffusionLaViBridge(StableDiffusion):
               num_inference_steps: int = 50,
               guidance_scale: float = 7.5,
               output_type: str = "pil",
+              resolution: list | None = None,
+              aspect_ratio: list | None = None,
               seed: int = 0) -> list[np.ndarray]:
         """Inference function.
 
@@ -72,6 +70,10 @@ class StableDiffusionLaViBridge(StableDiffusion):
                 Defaults to 7.5.
             output_type (str): The output format of the generate image.
                 Choose between 'pil' and 'latent'. Defaults to 'pil'.
+            resolution (list, optional): The resolution of the image.
+                Defaults to None.
+            aspect_ratio (list, optional): The aspect ratio of the image.
+                Defaults to None.
             seed (int): The seed for random number generator.
                 Defaults to 0.
 
@@ -79,13 +81,12 @@ class StableDiffusionLaViBridge(StableDiffusion):
         if self.pre_compute_text_embeddings:
             msg = "Pre-computed text embeddings are not supported yet."
             raise NotImplementedError(msg)
-        pipeline = StableDiffusionPipeline.from_pretrained(
+        pipeline = PixArtAlphaPipeline.from_pretrained(
             self.model,
             vae=self.vae,
             text_encoder=None,
             tokenizer=None,
-            unet=self.unet,
-            safety_checker=None,
+            transformer=self.transformer,
             torch_dtype=self.weight_dtype,
         )
         if self.prediction_type is not None:
@@ -95,53 +96,66 @@ class StableDiffusionLaViBridge(StableDiffusion):
                 pipeline.scheduler.config, **scheduler_args)
         pipeline.to(self.device)
         pipeline.set_progress_bar_config(disable=True)
-        pipeline.scheduler.set_timesteps(num_inference_steps)
+        added_cond_kwargs = {"resolution": resolution,
+                             "aspect_ratio": aspect_ratio}
         images = []
         for i, p in enumerate(prompt):
             generator = torch.Generator(
                 device=self.device).manual_seed(i + seed)
             # Text embeddings
-            text_ids = self.tokenizer(
+            text_inputs = self.tokenizer(
                 p,
+                add_special_tokens=True,
                 padding="max_length",
-                max_length=77,
-                return_tensors="pt", truncation=True).input_ids.to(self.device)
+                max_length=self.tokenizer_max_length,
+                return_tensors="pt", truncation=True)
             text_embeddings = self.text_encoder(
-                input_ids=text_ids,
-                output_hidden_states=True).hidden_states[-1].to(torch.float32)
+                text_inputs.input_ids.to(self.device),
+                attention_mask=text_inputs.attention_mask.to(self.device))[0]
             text_embeddings = self.adapter(text_embeddings).sample
+
             uncond_input = self.tokenizer(
                 ["" if negative_prompt is None else negative_prompt],
-                padding="max_length", max_length=77, return_tensors="pt")
+                add_special_tokens=True,
+                padding="max_length", max_length=self.tokenizer_max_length,
+                return_tensors="pt", truncation=True)
             # Convert the text embedding back to full precision
             uncond_embeddings = self.text_encoder(
                 uncond_input.input_ids.to(self.device),
-                output_hidden_states=True).hidden_states[-1].to(torch.float32)
+                attention_mask=uncond_input.attention_mask.to(self.device))[0]
             uncond_embeddings =  self.adapter(uncond_embeddings).sample
             text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
+            attention_masks = torch.cat([
+                uncond_input.attention_mask.to(self.device),
+                text_inputs.attention_mask.to(self.device)])
 
             # Latent preparation
             latents = randn_tensor(
-                (1, self.unet.in_channels, height // 8, width // 8),
+                (1, self.transformer.in_channels, height // 8, width // 8),
                 generator=generator, device=self.device)
             latents = latents * pipeline.scheduler.init_noise_sigma
 
             # Model prediction
+            pipeline.scheduler.set_timesteps(num_inference_steps)
             for t in pipeline.scheduler.timesteps:
                 latent_model_input = torch.cat([latents] * 2)
                 latent_model_input = pipeline.scheduler.scale_model_input(
                     latent_model_input, timestep=t)
-                noise_pred = self.unet(
-                    latent_model_input, t,
-                    encoder_hidden_states=text_embeddings).sample
+                noise_pred = self.transformer(
+                    latent_model_input,
+                    encoder_attention_mask=attention_masks,
+                    encoder_hidden_states=text_embeddings,
+                    timestep=t.reshape(1).repeat(2).to(self.device).to(self.weight_dtype),
+                    added_cond_kwargs=added_cond_kwargs).sample
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + guidance_scale * (
                     noise_pred_text - noise_pred_uncond)
+                noise_pred = noise_pred.chunk(2, dim=1)[0]
                 latents = pipeline.scheduler.step(
                     noise_pred, t, latents).prev_sample
 
             # Decoding
-            latents = 1 / 0.18215 * latents
+            latents = latents / self.vae.config.scaling_factor
 
             if output_type == "latent":
                 images.append(latents)
@@ -190,24 +204,36 @@ class StableDiffusionLaViBridge(StableDiffusion):
             latents, noise, timesteps)
 
         if not self.pre_compute_text_embeddings:
-            inputs["text"] = self.tokenizer(
+            text_inputs = self.tokenizer(
                 inputs["text"],
-                max_length=self.tokenizer.model_max_length,
+                max_length=self.tokenizer_max_length,
+                add_special_tokens=True,
                 padding="max_length",
                 truncation=True,
-                return_tensors="pt").input_ids.to(self.device)
+                return_tensors="pt")
+            inputs["text"] = text_inputs.input_ids.to(self.device)
+            inputs["attention_mask"] = text_inputs.attention_mask.to(self.device)
             encoder_hidden_states = self.text_encoder(
-                inputs["text"], output_hidden_states=True).hidden_states[-1]
+                inputs["text"], attention_mask=inputs["attention_mask"],
+            )[0]
         else:
             msg = "Pre-computed text embeddings are not supported yet."
             raise NotImplementedError(msg)
 
         encoder_hidden_states = self.adapter(encoder_hidden_states).sample
 
-        model_pred = self.unet(
+        if "resolution" in inputs:
+            added_cond_kwargs = {"resolution": inputs["resolution"],
+                                 "aspect_ratio": inputs["aspect_ratio"]}
+        else:
+            added_cond_kwargs = {"resolution": None, "aspect_ratio": None}
+
+        model_pred = self._forward_compile(
             inp_noisy_latents,
-            timesteps,
-            encoder_hidden_states=encoder_hidden_states).sample
+            encoder_attention_mask=inputs["attention_mask"],
+            encoder_hidden_states=encoder_hidden_states,
+            timestep=timesteps,
+            added_cond_kwargs=added_cond_kwargs)
 
         return self.loss(model_pred, noise, latents, timesteps,
                          noisy_model_input, sigmas)

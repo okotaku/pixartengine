@@ -147,13 +147,13 @@ class ELLA(nn.Module):
     def __init__(
         self,
         time_channel: int = 320,
-        time_embed_dim: int = 768,
+        time_embed_dim: int = 4096,
         act_fn: str = "silu",
         out_dim: int | None = None,
-        width: int = 768,
+        width: int = 4096,
         layers: int = 6,
         heads: int = 8,
-        num_latents: int = 64,
+        num_latents: int = 120,
         input_dim: int = 2048,
     ) -> None:
         super().__init__()

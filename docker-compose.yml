@@ -1,10 +1,10 @@
 version: "3.8"
 services:
-  template:
+  pixart:
     build: ./
     environment:
       - PYTHONPATH=/workspace:$PYTHONPATH
-    container_name: template
+    container_name: pixart
     ipc: host
     tty: true
     volumes:

@@ -32,7 +32,7 @@ class CheckpointHook(Hook):
             if not checkpoint["state_dict"][k].requires_grad:
                 continue
             new_k = k.replace("._orig_mod", "")
-            if k.startswith(("unet", "adapter")):
+            if k.startswith(("transformer", "adapter")):
                 new_ckpt[new_k] = checkpoint["state_dict"][k]
             elif k.startswith("text_encoder") and hasattr(
                     model,
@@ -42,39 +42,26 @@ class CheckpointHook(Hook):
                 new_ckpt[new_k] = checkpoint["state_dict"][k]
         checkpoint["state_dict"] = new_ckpt
 
-    def after_run(self, runner: Runner) -> None:  # noqa: C901
+    def after_run(self, runner: Runner) -> None:
         """After run hook."""
         model = runner.model
         if is_model_wrapper(model):
             model = model.module
         ckpt_path = osp.join(runner.work_dir, f"step{runner.iter}")
-        if hasattr(model, "prior"):
-            model.prior.save_pretrained(osp.join(ckpt_path, "prior"))
-        if hasattr(model, "decoder"):
-            model.decoder.save_pretrained(osp.join(ckpt_path, "prior"))
-        if hasattr(model, "unet"):
-            for p in model.unet.parameters():
+        if hasattr(model, "transformer"):
+            for p in model.transformer.parameters():
                 is_contiguous = p.is_contiguous()
                 break
             if not is_contiguous:
-                model.unet = model.unet.to(
+                model.transformer = model.transformer.to(
                     memory_format=torch.contiguous_format)
-            model.unet.save_pretrained(osp.join(ckpt_path, "unet"))
-        if hasattr(model, "transformer"):
             model.transformer.save_pretrained(
                 osp.join(ckpt_path, "transformer"))
         if hasattr(
                     model,
                     "finetune_text_encoder",
             ) and model.finetune_text_encoder:
-            if hasattr(model, "text_encoder"):
-                model.text_encoder.save_pretrained(
-                    osp.join(ckpt_path, "text_encoder"))
-            if hasattr(model, "text_encoder_one"):
-                model.text_encoder_one.save_pretrained(
-                    osp.join(ckpt_path, "text_encoder_one"))
-            if hasattr(model, "text_encoder_two"):
-                model.text_encoder_two.save_pretrained(
-                    osp.join(ckpt_path, "text_encoder_two"))
+            model.text_encoder.save_pretrained(
+                osp.join(ckpt_path, "text_encoder"))
         if hasattr(model, "adapter"):
             model.adapter.save_pretrained(osp.join(ckpt_path, "adapter"))

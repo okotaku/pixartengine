@@ -41,12 +41,6 @@ class CompileHook(Hook):
             compiled_func = torch.compile(
                 func, backend=self.backend, mode=self.mode)
             setattr(model, target, compiled_func)
-        elif hasattr(model, "unet"):
-            model.unet = torch.compile(model.unet, backend=self.backend,
-                                    mode=self.mode)
-        elif hasattr(model, "transformer"):
-            model.transformer = torch.compile(
-                model.transformer, backend=self.backend, mode=self.mode)
         else:
             msg = "The model has no main network to compile."
             raise NotImplementedError(
@@ -55,15 +49,18 @@ class CompileHook(Hook):
         if hasattr(model, "text_encoder"):
             model.text_encoder = torch.compile(
                 model.text_encoder, backend=self.backend, mode=self.mode)
-        if hasattr(model, "text_encoder_one"):
-            model.text_encoder_one = torch.compile(
-                model.text_encoder_one, backend=self.backend, mode=self.mode)
-        if hasattr(model, "text_encoder_two"):
-            model.text_encoder_two = torch.compile(
-                model.text_encoder_two, backend=self.backend, mode=self.mode)
         if hasattr(model, "vae"):
             model.vae = torch.compile(
                 model.vae, backend=self.backend, mode=self.mode)
         if hasattr(model, "image_encoder"):
             model.image_encoder = torch.compile(
                 model.image_encoder, backend=self.backend, mode=self.mode)
+        if hasattr(model, "orig_transformer"):
+            model.orig_transformer = torch.compile(
+                model.orig_transformer, backend=self.backend, mode=self.mode)
+        if hasattr(model, "teacher_transformer"):
+            model.teacher_transformer = torch.compile(
+                model.teacher_transformer, backend=self.backend, mode=self.mode)
+        if hasattr(model, "target_transformer"):
+            model.target_transformer = torch.compile(
+                model.target_transformer, backend=self.backend, mode=self.mode)

@@ -1,29 +1,30 @@
 from copy import deepcopy
-from typing import Optional
 
 import numpy as np
 import torch
 import torch.nn.functional as F  # noqa
-from diffusers import LCMScheduler, StableDiffusionPipeline, UNet2DConditionModel
+from diffusers import LCMScheduler, PixArtAlphaPipeline
 from mmengine.registry import MODELS
-from transformers import CLIPTextConfig
 
-from diffengine.models.editors.stable_diffusion import StableDiffusion
+from diffengine.datasets.utils import encode_prompt
+from diffengine.models.editors.pixart import PixArt
+from diffengine.models.transformers import Transformer2DModel
 from diffengine.models.utils import DDIMTimeSteps
 
 from .lcm_modules import (
     DDIMSolver,
     extract_into_tensor,
-    guidance_scale_embedding,
     scalings_for_boundary_conditions,
 )
 
 
-class StableDiffusionLCM(StableDiffusion):
+class PixArtLCM(PixArt):
     """Latent Consistency Models.
 
     Args:
     ----
+        tokenizer (dict): Config of tokenizer.
+        text_encoder (dict): Config of text encoder.
         timesteps_generator (dict, optional): The timesteps generator config.
             Defaults to ``dict(type=DDIMTimeSteps)``.
         num_ddim_timesteps (int): Number of DDIM timesteps. Defaults to 50.
@@ -39,6 +40,8 @@ class StableDiffusionLCM(StableDiffusion):
 
     def __init__(self,
                  *args,
+                 tokenizer: dict,
+                 text_encoder: dict,
                  timesteps_generator: dict | None = None,
                  num_ddim_timesteps: int = 50,
                  time_cond_proj_dim: int = 256,
@@ -53,9 +56,13 @@ class StableDiffusionLCM(StableDiffusion):
 
         self.ema_cfg = dict(type=ema_type, momentum=ema_momentum)
         self.time_cond_proj_dim = time_cond_proj_dim
+        self.tokenizer_config = tokenizer
+        self.text_encoder_config = text_encoder
 
         super().__init__(
             *args,
+            tokenizer=tokenizer,
+            text_encoder=text_encoder,
             timesteps_generator=timesteps_generator,
             **kwargs)  # type: ignore[misc]
 
@@ -81,38 +88,48 @@ class StableDiffusionLCM(StableDiffusion):
 
         Disable gradient for some models.
         """
-        self.teacher_unet = deepcopy(
-            self.unet).requires_grad_(requires_grad=False)
-        if self.unet_lora_config is None:
-            self.target_unet = MODELS.build(
-                self.ema_cfg, default_args=dict(model=self.unet))
-            self.guidance_scale = 7.5
+        self.teacher_transformer = deepcopy(
+            self.transformer).requires_grad_(requires_grad=False)
+        if self.transformer_lora_config is None:
+            self.target_transformer = MODELS.build(
+                self.ema_cfg, default_args=dict(model=self.transformer))
             self.mode = "lcm"
 
-            del self.unet
+            del self.transformer
             torch.cuda.empty_cache()
 
-            self.unet = UNet2DConditionModel.from_config(
-                self.teacher_unet.config,
+            self.transformer = Transformer2DModel.from_config(
+                self.teacher_transformer.config,
                 time_cond_proj_dim=self.time_cond_proj_dim)
-            self.unet.load_state_dict(self.teacher_unet.state_dict(), strict=False)
+            self.transformer.load_state_dict(
+                self.teacher_transformer.state_dict(), strict=False)
         else:
-            self.guidance_scale = 0.0
             self.mode = "lora"
 
         self.register_buffer("alpha_schedule",
-                             torch.sqrt(self.scheduler.alphas_cumprod))
+                             torch.sqrt(1 / self.scheduler.alphas_cumprod))
         self.register_buffer("sigma_schedule",
-                             torch.sqrt(1 - self.scheduler.alphas_cumprod))
+                             torch.sqrt(1 / self.scheduler.alphas_cumprod - 1))
 
         if self.pre_compute_text_embeddings:
-            text_encoder_config = CLIPTextConfig.from_pretrained(
-                self.model, subfolder="text_encoder")
-            prompt_embeds_size = text_encoder_config.hidden_size
-        else:
-            prompt_embeds_size = self.text_encoder.config.hidden_size
-        self.register_buffer("uncond_prompt_embeds",
-                            torch.zeros(1, 77, prompt_embeds_size))
+            self.tokenizer = MODELS.build(
+                self.tokenizer_config,
+                default_args={"pretrained_model_name_or_path": self.model})
+            self.text_encoder = MODELS.build(
+                self.text_encoder_config,
+                default_args={"pretrained_model_name_or_path": self.model})
+        embed = encode_prompt(
+            {"text": [""]},
+            text_encoder=self.text_encoder,
+            tokenizer=self.tokenizer,
+            caption_column="text",
+            tokenizer_max_length=self.tokenizer_max_length,
+        )
+        if self.pre_compute_text_embeddings:
+            del self.tokenizer, self.text_encoder
+            torch.cuda.empty_cache()
+        self.register_buffer("uncond_prompt_embeds", embed["prompt_embeds"])
+        self.register_buffer("uncond_attention_mask", embed["attention_mask"].float())
 
         super().prepare_model()
 
@@ -121,10 +138,10 @@ class StableDiffusionLCM(StableDiffusion):
         if self.enable_xformers:
             from diffusers.utils.import_utils import is_xformers_available
             if is_xformers_available():
-                self.unet.enable_xformers_memory_efficient_attention()
-                self.teacher_unet.enable_xformers_memory_efficient_attention()
-                if self.unet_lora_config is None:
-                    self.target_unet.enable_xformers_memory_efficient_attention()
+                self.transformer.enable_xformers_memory_efficient_attention()
+                self.teacher_transformer.enable_xformers_memory_efficient_attention()
+                if self.transformer_lora_config is None:
+                    self.target_transformer.enable_xformers_memory_efficient_attention()
             else:
                 msg = "Please install xformers to enable memory efficient attention."
                 raise ImportError(
@@ -137,7 +154,8 @@ class StableDiffusionLCM(StableDiffusion):
               negative_prompt: str | None = None,
               height: int = 512,
               width: int = 512,
-              num_inference_steps: int = 50,
+              num_inference_steps: int = 4,
+              guidance_scale: float = 0.0,
               output_type: str = "pil",
               seed: int = 0,
               **kwargs) -> list[np.ndarray]:
@@ -155,7 +173,8 @@ class StableDiffusionLCM(StableDiffusion):
             width (int):
                 The width in pixels of the generated image. Defaults to 512.
             num_inference_steps (int): Number of inference steps.
-                Defaults to 50.
+                Defaults to 4.
+            guidance_scale (float): The guidance scale. Defaults to 0.0.
             output_type (str): The output format of the generate image.
                 Choose between 'pil' and 'latent'. Defaults to 'pil'.
             seed (int): The seed for random number generator.
@@ -164,25 +183,23 @@ class StableDiffusionLCM(StableDiffusion):
 
         """
         if self.pre_compute_text_embeddings:
-            pipeline = StableDiffusionPipeline.from_pretrained(
+            pipeline = PixArtAlphaPipeline.from_pretrained(
                 self.model,
                 vae=self.vae,
-                unet=self.unet,
+                transformer=self.transformer,
                 scheduler=LCMScheduler.from_pretrained(
                     self.model, subfolder="scheduler"),
-                safety_checker=None,
                 torch_dtype=self.weight_dtype,
             )
         else:
-            pipeline = StableDiffusionPipeline.from_pretrained(
+            pipeline = PixArtAlphaPipeline.from_pretrained(
                 self.model,
                 vae=self.vae,
                 text_encoder=self.text_encoder,
                 tokenizer=self.tokenizer,
-                unet=self.unet,
+                transformer=self.transformer,
                 scheduler=LCMScheduler.from_pretrained(
                     self.model, subfolder="scheduler"),
-                safety_checker=None,
                 torch_dtype=self.weight_dtype,
             )
         if self.prediction_type is not None:
@@ -203,7 +220,7 @@ class StableDiffusionLCM(StableDiffusion):
                 width=width,
                 output_type=output_type,
                 generator=generator,
-                guidance_scale=self.guidance_scale,
+                guidance_scale=guidance_scale,
                 **kwargs).images[0]
             if output_type == "latent":
                 images.append(image)
@@ -220,10 +237,24 @@ class StableDiffusionLCM(StableDiffusion):
         msg = "Loss function is not implemented."
         raise NotImplementedError(msg)
 
-    def forward(
+    def _forward_compile(
+            self,
+            inp_noisy_latents: torch.Tensor,
+            encoder_attention_mask: torch.Tensor,
+            encoder_hidden_states: torch.Tensor,
+            timestep: torch.Tensor,
+            added_cond_kwargs: dict) -> torch.Tensor:
+        return self.transformer(
+            inp_noisy_latents,
+            encoder_attention_mask=encoder_attention_mask,
+            encoder_hidden_states=encoder_hidden_states,
+            timestep=timestep,
+            added_cond_kwargs=added_cond_kwargs).sample
+
+    def forward(  # noqa: PLR0915
             self,
             inputs: dict,
-            data_samples: Optional[list] = None,  # noqa
+            data_samples: list | None = None,  # noqa: ARG002
             mode: str = "loss") -> dict:
         """Forward function.
 
@@ -266,30 +297,37 @@ class StableDiffusionLCM(StableDiffusion):
 
         # Sample a random guidance scale w from U[w_min, w_max] and embed it
         w = (self.w_max - self.w_min) * torch.rand((num_batches,)) + self.w_min
-        if self.mode == "lcm":
-            w_embedding = guidance_scale_embedding(
-                w, embedding_dim=self.time_cond_proj_dim)
-            w_embedding = w_embedding.to(device=latents.device, dtype=latents.dtype)
         w = w.reshape(num_batches, 1, 1, 1)
         w = w.to(device=latents.device, dtype=latents.dtype)
 
         if not self.pre_compute_text_embeddings:
-            inputs["text"] = self.tokenizer(
+            text_inputs = self.tokenizer(
                 inputs["text"],
-                max_length=self.tokenizer.model_max_length,
+                max_length=self.tokenizer_max_length,
                 padding="max_length",
                 truncation=True,
-                return_tensors="pt").input_ids.to(self.device)
-            encoder_hidden_states = self.text_encoder(inputs["text"])[0]
+                return_tensors="pt")
+            inputs["text"] = text_inputs.input_ids.to(self.device)
+            attention_mask = text_inputs.attention_mask.to(self.device)
+            encoder_hidden_states = self.text_encoder(
+                inputs["text"], attention_mask=attention_mask)[0]
         else:
             encoder_hidden_states = inputs["prompt_embeds"].to(self.weight_dtype)
+            attention_mask = inputs["attention_mask"].to(self.weight_dtype)
+
+        if "resolution" in inputs:
+            added_cond_kwargs = {"resolution": inputs["resolution"],
+                                 "aspect_ratio": inputs["aspect_ratio"]}
+        else:
+            added_cond_kwargs = {"resolution": None, "aspect_ratio": None}
 
         # Get online LCM prediction on z_{t_{n + k}}, w, c, t_{n + k}
-        noise_pred = self.unet(
-            noisy_model_input,
-            start_timesteps,
-            timestep_cond=w_embedding if mode == "lcm" else None,
-            encoder_hidden_states=encoder_hidden_states).sample
+        noise_pred = self._forward_compile(
+            inp_noisy_latents,
+            encoder_attention_mask=attention_mask,
+            encoder_hidden_states=encoder_hidden_states,
+            timestep=start_timesteps,
+            added_cond_kwargs=added_cond_kwargs).chunk(2, dim=1)[0]
         pred_x_0 = self._predict_origin(
             noise_pred,
             start_timesteps,
@@ -302,10 +340,12 @@ class StableDiffusionLCM(StableDiffusion):
         # c and unconditional embedding 0. Get teacher model prediction on
         # noisy_latents and conditional embedding
         with torch.no_grad():
-            cond_teacher_output = self.teacher_unet(
-                noisy_model_input,
-                start_timesteps,
-                encoder_hidden_states=encoder_hidden_states).sample
+            cond_teacher_output = self.teacher_transformer(
+                inp_noisy_latents,
+                encoder_attention_mask=attention_mask,
+                encoder_hidden_states=encoder_hidden_states,
+                timestep=start_timesteps,
+                added_cond_kwargs=added_cond_kwargs).sample.chunk(2, dim=1)[0]
             cond_pred_x0 = self._predict_origin(
                 cond_teacher_output,
                 start_timesteps,
@@ -318,11 +358,14 @@ class StableDiffusionLCM(StableDiffusion):
             )
 
             # Get teacher model prediction on noisy_latents and unconditional embedding
-            uncond_teacher_output = self.teacher_unet(
-                noisy_model_input,
-                start_timesteps,
+            uncond_teacher_output = self.teacher_transformer(
+                inp_noisy_latents,
+                encoder_attention_mask=self.uncond_attention_mask.repeat(
+                    num_batches, 1, 1),
                 encoder_hidden_states=self.uncond_prompt_embeds.repeat(
-                    num_batches, 1, 1)).sample
+                    num_batches, 1, 1),
+                timestep=start_timesteps,
+                added_cond_kwargs=added_cond_kwargs).sample.chunk(2, dim=1)[0]
             uncond_pred_x0 = self._predict_origin(
                 uncond_teacher_output,
                 start_timesteps,
@@ -345,18 +388,20 @@ class StableDiffusionLCM(StableDiffusion):
         # Get target LCM prediction on x_prev, w, c, t_n
         with torch.no_grad():
             if mode == "lcm":
-                target_noise_pred = self.target_unet(
+                target_noise_pred = self.target_transformer(
                     x_prev,
-                    timesteps,
-                    timestep_cond=w_embedding,
-                    encoder_hidden_states=encoder_hidden_states).sample
+                    encoder_attention_mask=attention_mask,
+                    encoder_hidden_states=encoder_hidden_states,
+                    timestep=timesteps,
+                    added_cond_kwargs=added_cond_kwargs).sample.chunk(2, dim=1)[0]
             else:
                 # LCM LoRA
-                target_noise_pred = self.unet(
+                target_noise_pred = self.transformer(
                     x_prev,
-                    timesteps,
-                    timestep_cond=None,
-                    encoder_hidden_states=encoder_hidden_states).sample
+                    encoder_attention_mask=attention_mask,
+                    encoder_hidden_states=encoder_hidden_states,
+                    timestep=timesteps,
+                    added_cond_kwargs=added_cond_kwargs).sample.chunk(2, dim=1)[0]
             pred_x_0 = self._predict_origin(
                 target_noise_pred,
                 timesteps,
@@ -391,8 +436,6 @@ class StableDiffusionLCM(StableDiffusion):
         alphas = extract_into_tensor(self.alpha_schedule, timesteps)
 
         if self.scheduler.config.prediction_type == "epsilon":
-            pred_x_0 = (sample - sigmas * model_output) / alphas
-        elif self.scheduler.config.prediction_type == "v_prediction":
             pred_x_0 = alphas * sample - sigmas * model_output
         else:
             msg = f"Prediction type {self.prediction_type} currently not supported."
@@ -402,8 +445,9 @@ class StableDiffusionLCM(StableDiffusion):
 
     def _predict_noise(self,
                         model_output: torch.Tensor,
-                        timesteps: torch.Tensor,
-                        sample: torch.Tensor) -> torch.Tensor:
+                        timesteps: torch.Tensor,  # noqa: ARG002
+                        sample: torch.Tensor,  # noqa: ARG002
+                        ) -> torch.Tensor:
         """Predict the noise of the model output.
 
         Args:
@@ -418,13 +462,8 @@ class StableDiffusionLCM(StableDiffusion):
             self.scheduler.register_to_config(
                 prediction_type=self.prediction_type)
 
-        sigmas = extract_into_tensor(self.sigma_schedule, timesteps)
-        alphas = extract_into_tensor(self.alpha_schedule, timesteps)
-
         if self.scheduler.config.prediction_type == "epsilon":
             pred_epsilon = model_output
-        elif self.scheduler.config.prediction_type == "v_prediction":
-            pred_epsilon = alphas * model_output + sigmas * sample
         else:
             msg = f"Prediction type {self.prediction_type} currently not supported."
             raise ValueError(msg)

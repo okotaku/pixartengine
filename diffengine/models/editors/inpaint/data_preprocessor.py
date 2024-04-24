@@ -29,8 +29,17 @@ class InpaintDataPreprocessor(BaseDataPreprocessor):
         data["inputs"]["img"] = torch.stack(data["inputs"]["img"])
         data["inputs"]["masked_image"] = torch.stack(data["inputs"]["masked_image"])
         data["inputs"]["mask"] = torch.stack(data["inputs"]["mask"])
+        if "resolution" in data["inputs"]:
+            data["inputs"]["resolution"] = torch.stack(
+                data["inputs"]["resolution"])
+        if "aspect_ratio" in data["inputs"]:
+            data["inputs"]["aspect_ratio"] = torch.stack(
+                data["inputs"]["aspect_ratio"])
         # pre-compute text embeddings
         if "prompt_embeds" in data["inputs"]:
             data["inputs"]["prompt_embeds"] = torch.stack(
                 data["inputs"]["prompt_embeds"])
+        if "attention_mask" in data["inputs"]:
+            data["inputs"]["attention_mask"] = torch.stack(
+                data["inputs"]["attention_mask"])
         return super().forward(data)

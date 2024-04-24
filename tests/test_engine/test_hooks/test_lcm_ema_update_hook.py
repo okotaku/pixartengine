@@ -31,9 +31,9 @@ class ToyModel2(ToyModel):
     def __init__(self) -> None:
         super().__init__()
         ema_cfg = dict(type="ExponentialMovingAverage", momentum=0.05)
-        self.unet = nn.Linear(2, 1)
-        self.target_unet = MODELS.build(
-                ema_cfg, default_args=dict(model=self.unet))
+        self.transformer = nn.Linear(2, 1)
+        self.target_transformer = MODELS.build(
+                ema_cfg, default_args=dict(model=self.transformer))
 
     def forward(self, *args, **kwargs):
         return super().forward(*args, **kwargs)

@@ -132,6 +132,8 @@ class HFConditionDatasetPreComputeEmbs(HFConditionDataset):
         device (str): Device used to compute embeddings. Defaults to 'cuda'.
         proportion_empty_prompts (float): The probabilities to replace empty
             text. Defaults to 0.0.
+        tokenizer_max_length (int): The max length of tokenizer.
+            Defaults to 120.
 
     """
 
@@ -143,6 +145,7 @@ class HFConditionDatasetPreComputeEmbs(HFConditionDataset):
                  text_hasher: str = "text",
                  device: str = "cuda",
                  proportion_empty_prompts: float = 0.0,
+                 tokenizer_max_length: int = 120,
                  **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -161,6 +164,7 @@ class HFConditionDatasetPreComputeEmbs(HFConditionDataset):
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             caption_column=self.caption_column,
+            tokenizer_max_length=tokenizer_max_length,
         )
         self.dataset = self.dataset.map(
             compute_embeddings_fn,
@@ -172,6 +176,7 @@ class HFConditionDatasetPreComputeEmbs(HFConditionDataset):
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             caption_column="text",
+            tokenizer_max_length=tokenizer_max_length,
         )
 
         del text_encoder, tokenizer
@@ -206,11 +211,15 @@ class HFConditionDatasetPreComputeEmbs(HFConditionDataset):
                 os.path.join(self.dataset_name, condition_image))
         condition_image = condition_image.convert("RGB")
 
+        use_empty_prompts = random.random() < self.proportion_empty_prompts
         result = {
             "img": image,
             "condition_img": condition_image,
             "prompt_embeds": data_info["prompt_embeds"] if (
-                random.random() < self.proportion_empty_prompts
+                use_empty_prompts
                 ) else self.empty_embed["prompt_embeds"][0],
+            "attention_mask": data_info["attention_mask"] if (
+                use_empty_prompts
+                ) else self.empty_embed["attention_mask"][0],
         }
         return self.pipeline(result)

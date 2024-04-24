@@ -1,3 +1,3 @@
-from .apex_layers import FusedLayerNorm, GroupNorm
+from .layers import get_layer_norm
 
-__all__ = ["FusedLayerNorm", "GroupNorm"]
+__all__ = ["get_layer_norm"]

@@ -26,41 +26,6 @@ def scalings_for_boundary_conditions(
     return c_skip.reshape(b, 1, 1, 1), c_out.reshape(b, 1, 1, 1)
 
 
-def guidance_scale_embedding(
-    w: torch.Tensor,
-    embedding_dim: int = 512) -> torch.Tensor:
-    """Generate guidance scale embedding.
-
-    See https://github.com/google-research/vdm/blob/
-    dc27b98a554f65cdc654b800da5aa1846545d41b/model_vdm.py#L298
-
-    Args:
-    ----
-        w (torch.Tensor):
-            generate embedding vectors at these timesteps
-        embedding_dim (int):
-            dimension of the embeddings to generate. Defaults to 512
-
-    Returns:
-    -------
-        `torch.FloatTensor`: Embedding vectors with shape
-        `(len(timesteps), embedding_dim)`
-
-    """
-    assert len(w.shape) == 1
-    w = w * 1000.0
-
-    half_dim = embedding_dim // 2
-    emb = torch.log(torch.tensor(10000.0)) / (half_dim - 1)
-    emb = torch.exp(torch.arange(half_dim, dtype=w.dtype) * -emb)
-    emb = w[:, None] * emb[None, :]
-    emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=1)
-    if embedding_dim % 2 == 1:  # zero pad
-        emb = torch.nn.functional.pad(emb, (0, 1))
-    assert emb.shape == (w.shape[0], embedding_dim)
-    return emb
-
-
 class DDIMSolver(nn.Module):
     """DDIM solver."""
 
