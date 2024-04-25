@@ -214,7 +214,7 @@ class Transformer2DModel(ModelMixin, ConfigMixin):
         dropout: float = 0.0,  # noqa: ARG002
         norm_num_groups: int = 32,  # noqa: ARG002
         cross_attention_dim: int | None = None,  # noqa: ARG002
-        sample_size: int | None = None,  # noqa: ARG002
+        sample_size: int | None = None,
         num_vector_embeds: int | None = None,
         patch_size: int | None = None,
         activation_fn: str = "geglu",  # noqa: ARG002
@@ -231,16 +231,17 @@ class Transformer2DModel(ModelMixin, ConfigMixin):
         upcast_attention: bool = False,  # noqa: ARG002
         norm_elementwise_affine: bool = True,  # noqa: ARG002
         attention_bias: bool = False,  # noqa: ARG002
+        use_additional_conditions: bool | None = None,
     ) -> None:
         super().__init__()
         assert use_linear_projection is False
-        assert interpolation_scale is None
         assert num_vector_embeds is None
 
         # check whether the _init_patched_inputs or not
         assert in_channels is not None
         assert patch_size is not None
 
+        self.interpolation_scale = interpolation_scale
         self.caption_channels = caption_channels
         self.num_attention_heads = num_attention_heads
         self.attention_head_dim = attention_head_dim
@@ -249,6 +250,9 @@ class Transformer2DModel(ModelMixin, ConfigMixin):
         self.in_channels = in_channels
         self.out_channels = in_channels if out_channels is None else out_channels
         self.gradient_checkpointing = False
+        if use_additional_conditions is None:
+            use_additional_conditions = sample_size == 128  # noqa: PLR2004
+        self.use_additional_conditions = use_additional_conditions
 
         self._init_patched_inputs(norm_type=norm_type)
 
@@ -309,7 +313,6 @@ class Transformer2DModel(ModelMixin, ConfigMixin):
         )
 
         # PixArt-Alpha blocks.
-        self.use_additional_conditions = self.config.sample_size == 128  # noqa: PLR2004
         self.adaln_single = AdaLayerNormSingle(
             self.inner_dim,
             use_additional_conditions=self.use_additional_conditions,
