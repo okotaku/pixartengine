@@ -242,59 +242,60 @@ if pipeline_def is not None:
             mean=[0.5 * 255] * 3,
             std=[0.5 * 255] * 3)
         return output, fn.pad(text, fill_value=255)
+
+
+    class DALILAIONIterator(DALIGenericIterator):
+        """DALI LAION Web Dataset.
+
+        Args:
+        ----
+            batch_size (int): Batch size.
+            num_workers (int): Number of workers. Defaults to 0.
+            output_map (list[str], optional): Output map. Defaults to ["data", "text"].
+            img_size (int): Image size. Defaults to 512.
+            prob_text_drop (float): Probability of text drop. Defaults to 0.1.
+
+        """
+
+        def __init__(self,
+                    batch_size: int,
+                    num_workers: int = 0,
+                    output_map: list[str] | None = None,
+                    img_size: int = 512,
+                    prob_text_drop: float = 0.1) -> None:
+            if output_map is None:
+                output_map = ["data", "text"]
+
+            pipeline = sd_pipeline(
+                batch_size=batch_size, num_threads=num_workers, device_id=0,
+                img_size=img_size)
+            self.dataset = Dummy()
+            super().__init__(
+                pipeline,
+                output_map,
+                dynamic_shape=False,
+                auto_reset=True,
+                prepare_first_batch=False,
+                last_batch_policy=LastBatchPolicy.DROP)
+
+            self.prob_text_drop = prob_text_drop
+
+        def __next__(self) -> dict:
+            """Next function."""
+            data = super().__next__()
+            pad_t_value = 255
+            return dict(
+                inputs=dict(
+                    img=data[0]["data"],
+                    text=[
+                        t.cpu().numpy()[
+                            t!=pad_t_value].tostring().decode("utf-8") if (
+                            random.random() >= self.prob_text_drop
+                            ) else "" for t in data[0]["text"]]))
+
+        def __len__(self) -> int:
+            """Length function."""
+            return 10000000
 else:
     sd_pipeline = None
-
-
-class DALILAIONIterator(DALIGenericIterator):
-    """DALI LAION Web Dataset.
-
-    Args:
-    ----
-        batch_size (int): Batch size.
-        num_workers (int): Number of workers. Defaults to 0.
-        output_map (list[str], optional): Output map. Defaults to ["data", "text"].
-        img_size (int): Image size. Defaults to 512.
-        prob_text_drop (float): Probability of text drop. Defaults to 0.1.
-
-    """
-
-    def __init__(self,
-                 batch_size: int,
-                 num_workers: int = 0,
-                 output_map: list[str] | None = None,
-                 img_size: int = 512,
-                 prob_text_drop: float = 0.1) -> None:
-        if output_map is None:
-            output_map = ["data", "text"]
-
-        pipeline = sd_pipeline(
-            batch_size=batch_size, num_threads=num_workers, device_id=0,
-            img_size=img_size)
-        self.dataset = Dummy()
-        super().__init__(
-            pipeline,
-            output_map,
-            dynamic_shape=False,
-            auto_reset=True,
-            prepare_first_batch=False,
-            last_batch_policy=LastBatchPolicy.DROP)
-
-        self.prob_text_drop = prob_text_drop
-
-    def __next__(self) -> dict:
-        """Next function."""
-        data = super().__next__()
-        pad_t_value = 255
-        return dict(
-            inputs=dict(
-                img=data[0]["data"],
-                text=[
-                    t.cpu().numpy()[
-                        t!=pad_t_value].tostring().decode("utf-8") if (
-                        random.random() >= self.prob_text_drop
-                        ) else "" for t in data[0]["text"]]))
-
-    def __len__(self) -> int:
-        """Length function."""
-        return 10000000
+    DALILAIONIterator = None  # type: ignore[misc]
