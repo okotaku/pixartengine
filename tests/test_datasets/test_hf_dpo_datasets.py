@@ -1,7 +1,7 @@
 import numpy as np
 from mmengine.testing import RunnerTestCase
 from PIL import Image
-from transformers import CLIPTextModel, CLIPTokenizer
+from transformers import AutoTokenizer, T5EncoderModel
 
 from diffengine.datasets import HFDPODataset, HFDPODatasetPreComputeEmbs
 
@@ -25,17 +25,17 @@ class TestHFDPODatasetPreComputeEmbsPreComputeEmbs(RunnerTestCase):
     def test_dataset_from_local(self):
         dataset = HFDPODatasetPreComputeEmbs(
             dataset="tests/testdata/dataset", csv="metadata_dpo.csv",
-            model="hf-internal-testing/tiny-stable-diffusion-torch",
-            tokenizer=dict(type=CLIPTokenizer.from_pretrained,
-                        subfolder="tokenizer"),
-            text_encoder=dict(type=CLIPTextModel.from_pretrained,
-                        subfolder="text_encoder"),
+            model="PixArt-alpha/PixArt-XL-2-1024-MS",
+            tokenizer=dict(type=AutoTokenizer.from_pretrained,
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
+            text_encoder=dict(type=T5EncoderModel.from_pretrained,
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
             device="cpu")
         assert len(dataset) == 1
 
         data = dataset[0]
         assert "text" not in data
-        assert np.array(data["prompt_embeds"]).shape == (77, 32)
+        assert np.array(data["prompt_embeds"]).shape == (120, 32)
         assert len(data["img"]) == 2
         assert isinstance(data["img"][0], Image.Image)
         assert data["img"][0].width == 400

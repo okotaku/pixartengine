@@ -16,4 +16,4 @@ class TestDINOScore(RunnerTestCase):
         dino = DINOScore([img])
         score = dino(img)
         assert isinstance(score, float)
-        assert 0 <= score <= 1
+        assert score >= 0

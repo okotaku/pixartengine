@@ -3,7 +3,7 @@ from diffusers import (
     DDPMScheduler,
     Transformer2DModel,
 )
-from transformers import AutoTokenizer, T5EncoderModel
+from transformers import T5EncoderModel, T5Tokenizer
 
 from diffengine.models.editors import PixArt
 
@@ -12,12 +12,12 @@ model = dict(
             type=PixArt,
              model=base_model,
              tokenizer=dict(
-                 type=AutoTokenizer.from_pretrained,
-                pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
+                 type=T5Tokenizer.from_pretrained,
+                pretrained_model_name_or_path="hf-internal-testing/tiny-random-T5Model"),
              scheduler=dict(type=DDPMScheduler.from_pretrained,
                             subfolder="scheduler"),
              text_encoder=dict(type=T5EncoderModel.from_pretrained,
-                               pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
+                               pretrained_model_name_or_path="hf-internal-testing/tiny-random-T5Model"),
              vae=dict(
                 type=AutoencoderKL),
              transformer=dict(

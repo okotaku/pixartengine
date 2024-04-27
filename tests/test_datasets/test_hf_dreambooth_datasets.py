@@ -1,7 +1,7 @@
 import numpy as np
 from mmengine.testing import RunnerTestCase
 from PIL import Image
-from transformers import CLIPTextModel, CLIPTokenizer
+from transformers import AutoTokenizer, T5EncoderModel
 
 from diffengine.datasets import (
     HFDreamBoothDataset,
@@ -53,17 +53,17 @@ class TestHFDreamBoothDatasetPreComputeEmbs(RunnerTestCase):
         dataset = HFDreamBoothDatasetPreComputeEmbs(
             dataset="diffusers/dog-example",
             instance_prompt="a photo of sks dog",
-            model="hf-internal-testing/tiny-stable-diffusion-torch",
-            tokenizer=dict(type=CLIPTokenizer.from_pretrained,
-                        subfolder="tokenizer"),
-            text_encoder=dict(type=CLIPTextModel.from_pretrained,
-                        subfolder="text_encoder"),
+            model="PixArt-alpha/PixArt-XL-2-1024-MS",
+            tokenizer=dict(type=AutoTokenizer.from_pretrained,
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
+            text_encoder=dict(type=T5EncoderModel.from_pretrained,
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
             device="cpu")
         assert len(dataset) == 5
 
         data = dataset[0]
         assert "text" not in data
-        assert np.array(data["prompt_embeds"]).shape == (77, 32)
+        assert np.array(data["prompt_embeds"]).shape == (120, 32)
         assert isinstance(data["img"], Image.Image)
         assert data["img"].width == 1815
 
@@ -71,16 +71,16 @@ class TestHFDreamBoothDatasetPreComputeEmbs(RunnerTestCase):
         dataset = HFDreamBoothDatasetPreComputeEmbs(
             dataset="tests/testdata/dataset_db",
             instance_prompt="a photo of sks dog",
-            model="hf-internal-testing/tiny-stable-diffusion-torch",
-            tokenizer=dict(type=CLIPTokenizer.from_pretrained,
-                        subfolder="tokenizer"),
-            text_encoder=dict(type=CLIPTextModel.from_pretrained,
-                        subfolder="text_encoder"))
+            model="PixArt-alpha/PixArt-XL-2-1024-MS",
+            tokenizer=dict(type=AutoTokenizer.from_pretrained,
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
+            text_encoder=dict(type=T5EncoderModel.from_pretrained,
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"))
         assert len(dataset) == 1
 
         data = dataset[0]
         assert "text" not in data
-        assert np.array(data["prompt_embeds"]).shape == (77, 32)
+        assert np.array(data["prompt_embeds"]).shape == (120, 32)
         assert isinstance(data["img"], Image.Image)
         assert data["img"].width == 400
 
@@ -90,15 +90,15 @@ class TestHFDreamBoothDatasetPreComputeEmbs(RunnerTestCase):
             csv="metadata.csv",
             image_column="file_name",
             instance_prompt="a photo of sks dog",
-            model="hf-internal-testing/tiny-stable-diffusion-torch",
-            tokenizer=dict(type=CLIPTokenizer.from_pretrained,
-                        subfolder="tokenizer"),
-            text_encoder=dict(type=CLIPTextModel.from_pretrained,
-                        subfolder="text_encoder"))
+            model="PixArt-alpha/PixArt-XL-2-1024-MS",
+            tokenizer=dict(type=AutoTokenizer.from_pretrained,
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
+            text_encoder=dict(type=T5EncoderModel.from_pretrained,
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"))
         assert len(dataset) == 1
 
         data = dataset[0]
         assert "text" not in data
-        assert np.array(data["prompt_embeds"]).shape == (77, 32)
+        assert np.array(data["prompt_embeds"]).shape == (120, 32)
         assert isinstance(data["img"], Image.Image)
         assert data["img"].width == 400
