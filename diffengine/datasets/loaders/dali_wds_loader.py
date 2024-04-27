@@ -203,44 +203,47 @@ def read_webdataset(  # noqa: ANN201
     )
 
 
-@pipeline_def(enable_conditionals=True)
-def sd_pipeline(
-    img_size: int = 512,
-    initial_fill: int = 256,
-    seed: int = 0,
-    cycle: str = "quiet",
-    *,
-    random_shuffle: bool = True,
-    pad_last_batch: bool = False,
-    read_ahead: bool = False) -> tuple:
-    """Pipeline for WebDataset."""
-    paths = [
-        f"data/improved_aesthetics_5plus/images/{str(i).zfill(5)}.tar"
-        for i in range(3401)]
-    img, text = read_webdataset(paths=paths,
-                                 extensions=("img", "text"),
-                                 random_shuffle=random_shuffle,
-                                 initial_fill=initial_fill,
-                                 seed=seed,
-                                 pad_last_batch=pad_last_batch,
-                                 read_ahead=read_ahead,
-                                 cycle=cycle)
-    img = fn.decoders.image(img, output_type=types.RGB)
-    img = img.gpu()
+if pipeline_def is not None:
+    @pipeline_def(enable_conditionals=True)
+    def sd_pipeline(
+        img_size: int = 512,
+        initial_fill: int = 256,
+        seed: int = 0,
+        cycle: str = "quiet",
+        *,
+        random_shuffle: bool = True,
+        pad_last_batch: bool = False,
+        read_ahead: bool = False) -> tuple:
+        """Pipeline for WebDataset."""
+        paths = [
+            f"data/improved_aesthetics_5plus/images/{str(i).zfill(5)}.tar"
+            for i in range(3401)]
+        img, text = read_webdataset(paths=paths,
+                                    extensions=("img", "text"),
+                                    random_shuffle=random_shuffle,
+                                    initial_fill=initial_fill,
+                                    seed=seed,
+                                    pad_last_batch=pad_last_batch,
+                                    read_ahead=read_ahead,
+                                    cycle=cycle)
+        img = fn.decoders.image(img, output_type=types.RGB)
+        img = img.gpu()
 
-    rng = fn.random.coin_flip(probability=0.5)
+        rng = fn.random.coin_flip(probability=0.5)
 
-    resized = fn.resize(img, device="gpu", resize_shorter=img_size,
-                        interp_type=types.INTERP_LINEAR)
-    resized = fn.flip(resized, horizontal=rng)
-    output = fn.crop_mirror_normalize(
-        resized,
-        dtype=types.FLOAT,
-        crop=(img_size, img_size),
-        device="gpu",
-        mean=[0.5 * 255] * 3,
-        std=[0.5 * 255] * 3)
-    return output, fn.pad(text, fill_value=255)
+        resized = fn.resize(img, device="gpu", resize_shorter=img_size,
+                            interp_type=types.INTERP_LINEAR)
+        resized = fn.flip(resized, horizontal=rng)
+        output = fn.crop_mirror_normalize(
+            resized,
+            dtype=types.FLOAT,
+            crop=(img_size, img_size),
+            device="gpu",
+            mean=[0.5 * 255] * 3,
+            std=[0.5 * 255] * 3)
+        return output, fn.pad(text, fill_value=255)
+else:
+    sd_pipeline = None
 
 
 class DALILAIONIterator(DALIGenericIterator):
