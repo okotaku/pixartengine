@@ -3,8 +3,17 @@ import random
 
 import numpy as np
 import webdataset as wds
-from nvidia.dali import fn, pipeline, pipeline_def, types
-from nvidia.dali.plugin.pytorch import DALIGenericIterator, LastBatchPolicy
+
+try:
+    from nvidia.dali import fn, pipeline, pipeline_def, types
+    from nvidia.dali.plugin.pytorch import DALIGenericIterator, LastBatchPolicy
+except ImportError:
+    fn = None
+    pipeline = None
+    pipeline_def = None
+    types = None
+    DALIGenericIterator = None
+    LastBatchPolicy = None
 
 from .utils import Dummy
 
