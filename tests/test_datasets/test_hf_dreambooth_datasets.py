@@ -75,7 +75,8 @@ class TestHFDreamBoothDatasetPreComputeEmbs(RunnerTestCase):
             tokenizer=dict(type=AutoTokenizer.from_pretrained,
                         pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
             text_encoder=dict(type=T5EncoderModel.from_pretrained,
-                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"))
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
+            device="cpu")
         assert len(dataset) == 1
 
         data = dataset[0]
@@ -94,7 +95,8 @@ class TestHFDreamBoothDatasetPreComputeEmbs(RunnerTestCase):
             tokenizer=dict(type=AutoTokenizer.from_pretrained,
                         pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
             text_encoder=dict(type=T5EncoderModel.from_pretrained,
-                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"))
+                        pretrained_model_name_or_path="hf-internal-testing/tiny-random-t5"),
+            device="cpu")
         assert len(dataset) == 1
 
         data = dataset[0]
