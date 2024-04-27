@@ -28,8 +28,17 @@ class DPODataPreprocessor(BaseDataPreprocessor):
         """
         data["inputs"]["img"] = torch.cat(
             torch.stack(data["inputs"]["img"]).chunk(2, dim=1))
+        if "resolution" in data["inputs"]:
+            data["inputs"]["resolution"] = torch.stack(
+                data["inputs"]["resolution"])
+        if "aspect_ratio" in data["inputs"]:
+            data["inputs"]["aspect_ratio"] = torch.stack(
+                data["inputs"]["aspect_ratio"])
         # pre-compute text embeddings
         if "prompt_embeds" in data["inputs"]:
             data["inputs"]["prompt_embeds"] = torch.stack(
                 data["inputs"]["prompt_embeds"])
+        if "attention_mask" in data["inputs"]:
+            data["inputs"]["attention_mask"] = torch.stack(
+                data["inputs"]["attention_mask"])
         return super().forward(data)

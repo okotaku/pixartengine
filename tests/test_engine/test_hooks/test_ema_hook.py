@@ -28,7 +28,7 @@ class ToyModel2(ToyModel):
 
     def __init__(self) -> None:
         super().__init__()
-        self.unet = nn.Linear(2, 1)
+        self.transformer = nn.Linear(2, 1)
 
     def forward(self, *args, **kwargs):
         return super().forward(*args, **kwargs)
@@ -47,17 +47,17 @@ class TestEMAHook(RunnerTestCase):
         return super().tearDown()
 
     def test_init(self):
-        EMAHook(ema_key="unet")
+        EMAHook(ema_key="transformer")
 
         with pytest.raises(AssertionError, match="`begin_iter` must"):
-            EMAHook(ema_key="unet", begin_iter=-1)
+            EMAHook(ema_key="transformer", begin_iter=-1)
 
         with pytest.raises(AssertionError, match="`begin_epoch` must"):
-            EMAHook(ema_key="unet", begin_epoch=-1)
+            EMAHook(ema_key="transformer", begin_epoch=-1)
 
         with pytest.raises(
                 AssertionError, match="`begin_iter` and `begin_epoch`"):
-            EMAHook(ema_key="unet", begin_iter=1, begin_epoch=1)
+            EMAHook(ema_key="transformer", begin_iter=1, begin_epoch=1)
 
     def _get_ema_hook(self, runner):
         for hook in runner.hooks:
@@ -70,11 +70,11 @@ class TestEMAHook(RunnerTestCase):
         cfg.model.type = "ToyModel2"
         runner = self.build_runner(cfg)
 
-        ema_hook = EMAHook(ema_key="unet")
+        ema_hook = EMAHook(ema_key="transformer")
         ema_hook.before_run(runner)
         ema_hook.before_train(runner)
 
-        src_model = runner.model.unet
+        src_model = runner.model.transformer
         ema_model = ema_hook.ema_model
 
         with torch.no_grad():
@@ -101,7 +101,7 @@ class TestEMAHook(RunnerTestCase):
         cfg.model.type = "ToyModel2"
         runner = self.build_runner(cfg)
         checkpoint = dict(state_dict=ToyModel2().state_dict())
-        ema_hook = EMAHook(ema_key="unet")
+        ema_hook = EMAHook(ema_key="transformer")
         ema_hook.before_run(runner)
         ema_hook.before_train(runner)
 
@@ -109,13 +109,13 @@ class TestEMAHook(RunnerTestCase):
         ema_hook.before_save_checkpoint(runner, checkpoint)
 
         for key in ori_checkpoint["state_dict"]:
-            if key.startswith("unet."):
+            if key.startswith("transformer."):
                 assert_allclose(
                     ori_checkpoint["state_dict"][key].cpu(),
-                    checkpoint["ema_state_dict"][f"module.{key[5:]}"].cpu())
+                    checkpoint["ema_state_dict"][f"module.{key[12:]}"].cpu())
 
                 assert_allclose(
-                    ema_hook.ema_model.state_dict()[f"module.{key[5:]}"].cpu(),
+                    ema_hook.ema_model.state_dict()[f"module.{key[12:]}"].cpu(),
                     checkpoint["state_dict"][key].cpu())
 
     def test_after_load_checkpoint(self):
@@ -124,16 +124,16 @@ class TestEMAHook(RunnerTestCase):
         cfg.model.type = "ToyModel2"
         runner = self.build_runner(cfg)
         checkpoint = dict(state_dict=ToyModel2().state_dict())
-        ema_hook = EMAHook(ema_key="unet")
+        ema_hook = EMAHook(ema_key="transformer")
         ema_hook.before_run(runner)
         ema_hook.before_train(runner)
         ema_hook.after_load_checkpoint(runner, checkpoint)
 
         for key in checkpoint["state_dict"]:
-            if key.startswith("unet."):
+            if key.startswith("transformer."):
                 assert_allclose(
                     checkpoint["state_dict"][key].cpu(),
-                    ema_hook.ema_model.state_dict()[f"module.{key[5:]}"].cpu())
+                    ema_hook.ema_model.state_dict()[f"module.{key[12:]}"].cpu())
 
         # Test a warning should be raised when resuming from a checkpoint
         # without `ema_state_dict`
@@ -149,14 +149,14 @@ class TestEMAHook(RunnerTestCase):
         checkpoint = dict(
             state_dict=ToyModel2().state_dict(),
             ema_state_dict=ExponentialMovingAverage(
-                ToyModel2().unet).state_dict())
+                ToyModel2().transformer).state_dict())
         ori_checkpoint = copy.deepcopy(checkpoint)
         ema_hook.after_load_checkpoint(runner, checkpoint)
         for key in ori_checkpoint["state_dict"]:
-            if key.startswith("unet."):
+            if key.startswith("transformer."):
                 assert_allclose(
                     ori_checkpoint["state_dict"][key].cpu(),
-                    ema_hook.ema_model.state_dict()[f"module.{key[5:]}"].cpu())
+                    ema_hook.ema_model.state_dict()[f"module.{key[12:]}"].cpu())
 
         runner._resume = False
         ema_hook.after_load_checkpoint(runner, checkpoint)

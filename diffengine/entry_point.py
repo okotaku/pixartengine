@@ -67,7 +67,7 @@ CLI_HELP_MSG = \
         diffengine help
         diffengine version
 
-    GitHub: https://github.com/okotaku/diffengine
+    GitHub: https://github.com/okotaku/pixartengine
     """  # noqa: E501
 
 
@@ -86,7 +86,7 @@ PREPROCESS_HELP_MSG = \
         1. Preprocess bucket ids:
             diffengine preprocess bucket_ids
 
-    GitHub: https://github.com/okotaku/diffengine
+    GitHub: https://github.com/okotaku/pixartengine
     """  # noqa: E501
 
 ANALYZE_HELP_MSG = \
@@ -114,7 +114,7 @@ ANALYZE_HELP_MSG = \
         6. Eval VQAScore on a set of images:
             diffengine analyze eval_vqascore --model $MODEL_NAME
 
-    GitHub: https://github.com/okotaku/diffengine
+    GitHub: https://github.com/okotaku/pixartengine
     """  # noqa: E501
 
 special = {

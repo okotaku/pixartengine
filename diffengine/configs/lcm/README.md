@@ -34,5 +34,5 @@ $ diffengine train ${CONFIG_FILE}
 $ NPROC_PER_NODE=${GPU_NUM} diffengine train ${CONFIG_FILE}
 
 # Example.
-$ diffengine train lcm_v15_pokemon_blip
+$ diffengine train pixart_alpha_512_lcm_pokemon
 ```

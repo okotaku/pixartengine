@@ -34,7 +34,7 @@ $ diffengine train ${CONFIG_FILE}
 $ NPROC_PER_NODE=${GPU_NUM} diffengine train ${CONFIG_FILE}
 
 # Example.
-$ diffengine train stable_diffusion_inpaint_dog
+$ diffengine train pixart_alpha_512_inpaint_dog
 ```
 
 ## Inference with diffusers
@@ -42,38 +42,16 @@ $ diffengine train stable_diffusion_inpaint_dog
 Once you have trained a model, specify the path to the saved model and utilize it for inference using the `diffusers.pipeline` module.
 
 ```py
-import torch
-from diffusers import StableDiffusionInpaintPipeline, UNet2DConditionModel
-from diffusers.utils import load_image
-
-prompt = 'a photo of sks dog'
-img = 'https://github.com/okotaku/diffengine/assets/24734142/8e02bd0e-9dcc-49b6-94b0-86ab3b40bc2b'
-mask = 'https://github.com/okotaku/diffengine/assets/24734142/d0de4fb9-9183-418a-970d-582e9324f05d'
-checkpoint = 'work_dirs/stable_diffusion_inpaint_dog/step999'
-
-unet = UNet2DConditionModel.from_pretrained(
-    checkpoint, subfolder='unet', torch_dtype=torch.float16)
-pipe = StableDiffusionInpaintPipeline.from_pretrained(
-    'runwayml/stable-diffusion-inpainting', unet=unet, torch_dtype=torch.float16)
-pipe.to('cuda')
-
-image = pipe(
-    prompt,
-    load_image(img).convert("RGB"),
-    load_image(mask).convert("L"),
-    num_inference_steps=50,
-).images[0]
-image.save('demo.png')
 ```
 
 You can see more details on [`docs/source/run_guides/run_inpaint.md`](../../docs/source/run_guides/run_inpaint.md#inference-with-diffusers).
 
 ## Results Example
 
-#### stable_diffusion_inpaint_dog
+#### pixart_alpha_512_inpaint_dog
 
 ![input](https://github.com/okotaku/diffengine/assets/24734142/8e02bd0e-9dcc-49b6-94b0-86ab3b40bc2b)
 
 ![mask](https://github.com/okotaku/diffengine/assets/24734142/d0de4fb9-9183-418a-970d-582e9324f05d)
 
-![example](https://github.com/okotaku/diffengine/assets/24734142/f9ec820b-af75-4c74-8c0b-6558a0a19b95)
+![example](<>)

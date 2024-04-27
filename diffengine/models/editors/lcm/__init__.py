@@ -1,3 +1,3 @@
-from .lcm import StableDiffusionLCM
+from .lcm import PixArtLCM
 
-__all__ = ["StableDiffusionLCM"]
+__all__ = ["PixArtLCM"]

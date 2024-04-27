@@ -2,7 +2,7 @@ import copy
 import shutil
 from pathlib import Path
 
-from diffusers import UNet2DConditionModel
+from diffusers import Transformer2DModel
 from mmengine.model import BaseModel
 from mmengine.registry import MODELS
 from mmengine.testing import RunnerTestCase
@@ -28,9 +28,22 @@ class ToyModel2(ToyModel):
 
     def __init__(self) -> None:
         super().__init__()
-        self.unet = UNet2DConditionModel.from_pretrained(
-            "hf-internal-testing/tiny-stable-diffusion-torch", subfolder="unet",
-        )
+        self.transformer = Transformer2DModel(
+            sample_size=8,
+            num_layers=2,
+            patch_size=2,
+            attention_head_dim=8,
+            num_attention_heads=3,
+            caption_channels=32,
+            in_channels=4,
+            cross_attention_dim=24,
+            out_channels=8,
+            attention_bias=True,
+            activation_fn="gelu-approximate",
+            num_embeds_ada_norm=1000,
+            norm_type="ada_norm_single",
+            norm_elementwise_affine=False,
+            norm_eps=1e-6)
         self.vae = nn.Linear(2, 1)
         self.text_encoder = nn.Linear(2, 1)
 
@@ -62,7 +75,7 @@ class TestCheckpointHook(RunnerTestCase):
         hook.before_save_checkpoint(runner, checkpoint)
 
         for key in checkpoint["state_dict"]:
-            assert key.startswith(("unet", "text_encoder"))
+            assert key.startswith(("transformer", "text_encoder"))
 
     def test_after_run(self):
         cfg = copy.deepcopy(self.epoch_based_cfg)
@@ -71,7 +84,7 @@ class TestCheckpointHook(RunnerTestCase):
         hook = CheckpointHook()
         hook.after_run(runner)
 
-        assert (Path(runner.work_dir) / (f"step{runner.iter}/unet/"
+        assert (Path(runner.work_dir) / (f"step{runner.iter}/transformer/"
                      "diffusion_pytorch_model.safetensors")).exists()
         shutil.rmtree(
             Path(runner.work_dir) / f"step{runner.iter}")

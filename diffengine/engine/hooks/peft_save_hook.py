@@ -19,7 +19,7 @@ class PeftSaveHook(Hook):
     priority = "VERY_LOW"
     last_step = -1
 
-    def before_save_checkpoint(self, runner: Runner, checkpoint: dict) -> None:  # noqa
+    def before_save_checkpoint(self, runner: Runner, checkpoint: dict) -> None:
         """Before save checkpoint hook.
 
         Args:
@@ -34,18 +34,9 @@ class PeftSaveHook(Hook):
             model = model.module
 
         ckpt_path = osp.join(runner.work_dir, f"step{runner.iter}")
-        if hasattr(model, "unet"):
-            model.unet.save_pretrained(osp.join(ckpt_path, "unet"))
-            model_keys = ["unet"]
-        elif hasattr(model, "prior"):
-            # TODO(takuoko): Delete if bug is fixed in diffusers.  # noqa
-            model.prior._internal_dict["_name_or_path"] = "prior"  # noqa
-            model.prior.save_pretrained(osp.join(ckpt_path, "prior"))
-            model_keys = ["prior"]
-        elif hasattr(model, "transformer"):
-            model.transformer.save_pretrained(
-                osp.join(ckpt_path, "transformer"))
-            model_keys = ["transformer"]
+        model.transformer.save_pretrained(
+            osp.join(ckpt_path, "transformer"))
+        model_keys = ["transformer"]
 
         if hasattr(model, "adapter"):
             model.adapter.save_pretrained(
@@ -53,18 +44,9 @@ class PeftSaveHook(Hook):
 
         if hasattr(model,
                    "finetune_text_encoder") and model.finetune_text_encoder:
-            if hasattr(model, "text_encoder"):
-                model.text_encoder.save_pretrained(
-                    osp.join(ckpt_path, "text_encoder"))
-                model_keys.append("text_encoder")
-            if hasattr(model, "text_encoder_one"):
-                model.text_encoder_one.save_pretrained(
-                    osp.join(ckpt_path, "text_encoder_one"))
-                model_keys.append("text_encoder_one")
-            if hasattr(model, "text_encoder_two"):
-                model.text_encoder_two.save_pretrained(
-                    osp.join(ckpt_path, "text_encoder_two"))
-                model_keys.append("text_encoder_two")
+            model.text_encoder.save_pretrained(
+                osp.join(ckpt_path, "text_encoder"))
+            model_keys.append("text_encoder")
 
         # remove previous weights
         if self.last_step >= 0:

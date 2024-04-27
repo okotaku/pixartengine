@@ -1,0 +1,39 @@
+from diffusers import (
+    AutoencoderKL,
+    DDPMScheduler,
+    Transformer2DModel,
+)
+from transformers import T5EncoderModel, T5Tokenizer
+
+from diffengine.models.editors import PixArt
+
+base_model = "PixArt-alpha/PixArt-XL-2-1024-MS"
+model = dict(
+            type=PixArt,
+             model=base_model,
+             tokenizer=dict(
+                 type=T5Tokenizer.from_pretrained,
+                pretrained_model_name_or_path="hf-internal-testing/tiny-random-T5Model"),
+             scheduler=dict(type=DDPMScheduler.from_pretrained,
+                            subfolder="scheduler"),
+             text_encoder=dict(type=T5EncoderModel.from_pretrained,
+                               pretrained_model_name_or_path="hf-internal-testing/tiny-random-T5Model"),
+             vae=dict(
+                type=AutoencoderKL),
+             transformer=dict(
+                type=Transformer2DModel,
+                sample_size=8,
+                num_layers=2,
+                patch_size=2,
+                attention_head_dim=8,
+                num_attention_heads=3,
+                caption_channels=32,
+                in_channels=4,
+                cross_attention_dim=24,
+                out_channels=8,
+                attention_bias=True,
+                activation_fn="gelu-approximate",
+                num_embeds_ada_norm=1000,
+                norm_type="ada_norm_single",
+                norm_elementwise_affine=False,
+                norm_eps=1e-6))

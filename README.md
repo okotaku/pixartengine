@@ -1,14 +1,14 @@
 # DiffEngine
 
-[![build](https://github.com/okotaku/template/actions/workflows/build.yml/badge.svg)](https://github.com/okotaku/template/actions/workflows/build.yml)
+[![build](https://github.com/okotaku/pixartengine/actions/workflows/build.yml/badge.svg)](https://github.com/okotaku/pixartengine/actions/workflows/build.yml)
 [![Docs](https://img.shields.io/badge/docs-latest-blue)](https://template.readthedocs.io/en/latest/)
-[![license](https://img.shields.io/github/license/okotaku/template.svg)](https://github.com/okotaku/template/blob/main/LICENSE)
-[![open issues](https://isitmaintained.com/badge/open/okotaku/template.svg)](https://github.com/okotaku/template/issues)
+[![license](https://img.shields.io/github/license/okotaku/pixartengine.svg)](https://github.com/okotaku/pixartengine/blob/main/LICENSE)
+[![open issues](https://isitmaintained.com/badge/open/okotaku/pixartengine.svg)](https://github.com/okotaku/pixartengine/issues)
 [![Linting: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 
 [📘 Documentation](https://template0.readthedocs.io/en/latest/) |
-[🤔 Reporting Issues](https://github.com/okotaku/template/issues/new/choose)
+[🤔 Reporting Issues](https://github.com/okotaku/pixartengine/issues/new/choose)
 
 ## 📄 Table of Contents
 
@@ -30,7 +30,7 @@
 
 DiffEngine is an open-source toolbox designed for training state-of-the-art Diffusion Models. Packed with advanced features including diffusers and MMEngine, DiffEngine empowers both seasoned experts and newcomers in the field to efficiently create and enhance diffusion models. Stay at the forefront of innovation with our cutting-edge platform, accelerating your journey in Diffusion Models training.
 
-1. **Training state-of-the-art Diffusion Models**: Empower your projects with state-of-the-art Diffusion Models. Explore options like Stable Diffusion, DreamBooth, and LoRA.
+1. **Training state-of-the-art Diffusion Models**: Empower your projects with state-of-the-art Diffusion Models. Explore options like PixArt-α, DreamBooth, and LoRA.
 2. **Unified Config System and Module Designs**: Thanks to MMEngine, our platform boasts a unified configuration system and modular designs. Easily customize hyperparameters, loss functions, and other crucial settings while maintaining a structured and organized project environment.
 3. **Inference with diffusers.pipeline**: Seamlessly transition from training to real-world application. Effortlessly deploy your trained Diffusion Models for inference tasks. Enhance your productivity and project timeline.
 4. **Optimized training speed**: Our platform is designed to accelerate training speed. We utilize the Apex, Nvidia NGC Container, `torch.compile`. You can achieve high-quality results in less time, accelerating your project timeline and enhancing your productivity.
@@ -42,10 +42,10 @@ DiffEngine is an open-source toolbox designed for training state-of-the-art Diff
 Below are the quick steps for installing and running dreambooth training using Docker:
 
 ```bash
-git clone https://github.com/okotaku/template
+git clone https://github.com/okotaku/pixartengine
 cd sdxlengine
 docker compose up -d
-docker compose exec template diffengine train stable_diffusion_xl_dreambooth_lora_dog
+docker compose exec pixartengine diffengine train pixart_alpha_512_dreambooth_lora_dog
 ```
 
 #### 📦 Devcontainer
@@ -55,7 +55,7 @@ You can also utilize the devcontainer to develop the DiffEngine. The devcontaine
 1. Clone repository:
 
 ```
-git clone https://github.com/okotaku/template
+git clone https://github.com/okotaku/pixartengine
 ```
 
 2. Open the cloned repository in Visual Studio Code.
@@ -65,42 +65,42 @@ git clone https://github.com/okotaku/template
 4. Run the following command to start training with the selected config:
 
 ```bash
-diffengine train stable_diffusion_xl_dreambooth_lora_dog
+diffengine train pixart_alpha_512_dreambooth_lora_dog
 ```
 
 ## 👨‍🏫 Get Started [🔝](#-table-of-contents)
 
 DiffEngine makes training easy through its pre-defined configs. These configs provide a streamlined way to start your training process. Here's how you can get started using one of the pre-defined configs:
 
-1. **Choose a config**: You can find various pre-defined configs in the [`configs`](diffengine/configs/) directory of the DiffEngine repository. For example, if you wish to train a DreamBooth model using the Stable Diffusion algorithm, you can use the [`configs/dreambooth/stable_diffusion_v15_dreambooth_lora_dog.py`](diffengine/configs/dreambooth/stable_diffusion_v15_dreambooth_lora_dog.py).
+1. **Choose a config**: You can find various pre-defined configs in the [`configs`](diffengine/configs/) directory of the DiffEngine repository. For example, if you wish to train a DreamBooth model using the PixArt-α algorithm, you can use the [`configs/dreambooth/pixart_alpha_512_dreambooth_lora_dog.py`](diffengine/configs/dreambooth/pixart_alpha_512_dreambooth_lora_dog.py).
 
 2. **Start Training**: Open a terminal and run the following command to start training with the selected config:
 
 ```bash
-diffengine train stable_diffusion_v15_dreambooth_lora_dog
+diffengine train pixart_alpha_512_dreambooth_lora_dog
 ```
 
-3. **Monitor Progress and get results**: The training process will begin, and you can track its progress. The outputs of the training will be located in the `work_dirs/stable_diffusion_v15_dreambooth_lora_dog` directory, specifically when using the `stable_diffusion_v15_dreambooth_lora_dog` config.
+3. **Monitor Progress and get results**: The training process will begin, and you can track its progress. The outputs of the training will be located in the `work_dirs/pixart_alpha_512_dreambooth_lora_dog` directory, specifically when using the `pixart_alpha_512_dreambooth_lora_dog` config.
 
 ```
-work_dirs/stable_diffusion_v15_dreambooth_lora_dog
+work_dirs/pixart_alpha_512_dreambooth_lora_dog
 ├── 20230802_033741
 |   ├── 20230802_033741.log  # log file
 |   └── vis_data
 |         ├── 20230802_033741.json  # log json file
 |         ├── config.py  # config file for each experiment
 |         └── vis_image  # visualized image from each step
-├── step999/unet
+├── step999/transformer
 |   ├── adapter_config.json  # adapter conrfig file
 |   └── adapter_model.bin  # weight for inferencing with diffusers.pipeline
 ├── iter_1000.pth  # checkpoint from each step
 ├── last_checkpoint  # last checkpoint, it can be used for resuming
-└── stable_diffusion_v15_dreambooth_lora_dog.py  # latest config file
+└── pixart_alpha_512_dreambooth_lora_dog.py  # latest config file
 ```
 
 An illustrative output example is provided below:
 
-![img](https://github.com/okotaku/template/assets/24734142/e4576779-e05f-42d0-a709-d6481eea87a9)
+![img](https://github.com/okotaku/pixartengine/assets/24734142/e4576779-e05f-42d0-a709-d6481eea87a9)
 
 4. **Inference with diffusers.pipeline**: Once you have trained a model, simply specify the path to the saved model and inference by the `diffusers.pipeline` module.
 
@@ -111,7 +111,7 @@ import torch
 from diffusers import DiffusionPipeline
 from peft import PeftModel
 
-checkpoint = Path('work_dirs/stable_diffusion_v15_dreambooth_lora_dog/step999')
+checkpoint = Path('work_dirs/pixart_alpha_512_dreambooth_lora_dog/step999')
 prompt = 'A photo of sks dog in a bucket'
 
 pipe = DiffusionPipeline.from_pretrained(
@@ -135,7 +135,7 @@ For detailed user guides and advanced guides, please refer to our [Documentation
 <details>
 <summary>Run Guides</summary>
 
-- [Run Stable Diffusion](https://template.readthedocs.io/en/latest/run_guides/run.html)
+- [Run PixArt-α](https://template.readthedocs.io/en/latest/run_guides/run.html)
 - [Run DreamBooth](https://template.readthedocs.io/en/latest/run_guides/run_dreambooth.html)
 - [Run LoRA](https://template.readthedocs.io/en/latest/run_guides/run_lora.html)
 - [Run ControlNet](https://template.readthedocs.io/en/latest/run_guides/run_controlnet.html)
@@ -162,7 +162,7 @@ For detailed user guides and advanced guides, please refer to our [Documentation
   <tbody>
     <tr align="center" valign="bottom">
       <td>
-        <b>Stable Diffusions</b>
+        <b>PixArt-αs</b>
       </td>
       <td>
         <b>Others</b>
@@ -171,7 +171,7 @@ For detailed user guides and advanced guides, please refer to our [Documentation
     <tr valign="top">
       <td>
         <ul>
-            <li><a href="diffengine/configs/stable_diffusion/README.md">Stable Diffusion (2022)</a></li>
+            <li><a href="diffengine/configs/pixart_alpha/README.md">PixArt-α (ICLR's 2024)</a></li>
             <li><a href="diffengine/configs/controlnet/README.md">ControlNet (ICCV'2023)</a></li>
             <li><a href="diffengine/configs/dreambooth/README.md">DreamBooth (CVPR'2023)</a></li>
             <li><a href="diffengine/configs/lora/README.md">LoRA (ICLR'2022)</a></li>
@@ -186,7 +186,6 @@ For detailed user guides and advanced guides, please refer to our [Documentation
             <li><a href="diffengine/configs/pyramid_noise/README.md">Pyramid Noise (2023)</a></li>
             <li><a href="diffengine/configs/input_perturbation/README.md">Input Perturbation (2023)</a></li>
             <li><a href="diffengine/configs/timesteps_bias/README.md">Time Steps Bias (2023)</a></li>
-            <li><a href="diffengine/configs/v_prediction/README.md">V Prediction (ICLR'2022)</a></li>
       </ul>
       </td>
     </tr>

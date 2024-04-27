@@ -134,6 +134,8 @@ class HFDPODatasetPreComputeEmbs(HFDPODataset):
         device (str): Device used to compute embeddings. Defaults to 'cuda'.
         proportion_empty_prompts (float): The probabilities to replace empty
             text. Defaults to 0.0.
+        tokenizer_max_length (int): The max length of tokenizer.
+            Defaults to 120.
 
     """
 
@@ -145,6 +147,7 @@ class HFDPODatasetPreComputeEmbs(HFDPODataset):
                  text_hasher: str = "text",
                  device: str = "cuda",
                  proportion_empty_prompts: float = 0.0,
+                 tokenizer_max_length: int = 120,
                  **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -163,6 +166,7 @@ class HFDPODatasetPreComputeEmbs(HFDPODataset):
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             caption_column=self.caption_column,
+            tokenizer_max_length=tokenizer_max_length,
         )
         self.dataset = self.dataset.map(
             compute_embeddings_fn,
@@ -174,6 +178,7 @@ class HFDPODatasetPreComputeEmbs(HFDPODataset):
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             caption_column="text",
+            tokenizer_max_length=tokenizer_max_length,
         )
 
         del text_encoder, tokenizer
@@ -209,10 +214,14 @@ class HFDPODatasetPreComputeEmbs(HFDPODataset):
         label = data_info[self.label_column]
         if not label:
             images = images[::-1]
+        use_empty_prompts = random.random() < self.proportion_empty_prompts
         result = {
             "img": images,
             "prompt_embeds": data_info["prompt_embeds"] if (
-                random.random() < self.proportion_empty_prompts
+                use_empty_prompts
                 ) else self.empty_embed["prompt_embeds"][0],
+            "attention_mask": data_info["attention_mask"] if (
+                use_empty_prompts
+                ) else self.empty_embed["attention_mask"][0],
         }
         return self.pipeline(result)

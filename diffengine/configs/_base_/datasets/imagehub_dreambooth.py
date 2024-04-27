@@ -7,6 +7,7 @@ from diffengine.datasets.transforms import (
     PackInputs,
     RandomCrop,
     RandomHorizontalFlip,
+    T5TextPreprocess,
     TorchVisonTransformWrapper,
 )
 from diffengine.engine.hooks import (
@@ -27,6 +28,7 @@ train_pipeline = [
     dict(type=DumpImage, max_imgs=10, dump_dir="work_dirs/dump"),
     dict(type=TorchVisonTransformWrapper,
          transform=torchvision.transforms.Normalize, mean=[0.5], std=[0.5]),
+    dict(type=T5TextPreprocess),
     dict(type=PackInputs),
 ]
 train_dataloader = dict(

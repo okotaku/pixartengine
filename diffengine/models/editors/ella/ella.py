@@ -2,27 +2,25 @@ from typing import Optional
 
 import numpy as np
 import torch
-from diffusers import StableDiffusionPipeline
+from diffusers import PixArtAlphaPipeline
 from diffusers.utils.torch_utils import randn_tensor
 from mmengine.registry import MODELS
 
-from diffengine.models.editors.stable_diffusion import StableDiffusion
+from diffengine.models.editors.pixart import PixArt
 
 
-class StableDiffusionELLA(StableDiffusion):
+class PixArtELLA(PixArt):
     """ELLA.
 
     Args:
     ----
         adapter (dict): The adapter config.
-        max_length (int, optional): The max length. Defaults to 77.
 
     """
 
     def __init__(self,
                  *args,
                  adapter: dict,
-                 max_length: int | None = 128,
                  **kwargs) -> None:
 
         self.adapter_config = adapter
@@ -30,8 +28,6 @@ class StableDiffusionELLA(StableDiffusion):
         super().__init__(
             *args,
             **kwargs)  # type: ignore[misc]
-        if max_length is not None:
-            self.tokenizer.model_max_length = max_length
 
     def prepare_model(self) -> None:
         """Prepare model for training.
@@ -41,17 +37,19 @@ class StableDiffusionELLA(StableDiffusion):
         self.adapter = MODELS.build(self.adapter_config)
 
         super().prepare_model()
-        self.unet.requires_grad_(requires_grad=False)
+        self.transformer.requires_grad_(requires_grad=False)
 
     @torch.no_grad()
-    def infer(self,
+    def infer(self,  # noqa: PLR0913
               prompt: list[str],
               negative_prompt: str | None = None,
               height: int = 512,
               width: int = 512,
-              num_inference_steps: int = 50,
+              num_inference_steps: int = 20,
               guidance_scale: float = 7.5,
               output_type: str = "pil",
+              resolution: list | None = None,
+              aspect_ratio: list | None = None,
               seed: int = 0) -> list[np.ndarray]:
         """Inference function.
 
@@ -67,11 +65,15 @@ class StableDiffusionELLA(StableDiffusion):
             width (int):
                 The width in pixels of the generated image. Defaults to 512.
             num_inference_steps (int): Number of inference steps.
-                Defaults to 50.
+                Defaults to 20.
             guidance_scale (float): The guidance scale for the model.
                 Defaults to 7.5.
             output_type (str): The output format of the generate image.
                 Choose between 'pil' and 'latent'. Defaults to 'pil'.
+            resolution (list, optional): The resolution of the image.
+                Defaults to None.
+            aspect_ratio (list, optional): The aspect ratio of the image.
+                Defaults to None.
             seed (int): The seed for random number generator.
                 Defaults to 0.
 
@@ -79,13 +81,12 @@ class StableDiffusionELLA(StableDiffusion):
         if self.pre_compute_text_embeddings:
             msg = "Pre-computed text embeddings are not supported yet."
             raise NotImplementedError(msg)
-        pipeline = StableDiffusionPipeline.from_pretrained(
+        pipeline = PixArtAlphaPipeline.from_pretrained(
             self.model,
             vae=self.vae,
             text_encoder=None,
             tokenizer=None,
-            unet=self.unet,
-            safety_checker=None,
+            transformer=self.transformer,
             torch_dtype=self.weight_dtype,
         )
         if self.prediction_type is not None:
@@ -95,7 +96,8 @@ class StableDiffusionELLA(StableDiffusion):
                 pipeline.scheduler.config, **scheduler_args)
         pipeline.to(self.device)
         pipeline.set_progress_bar_config(disable=True)
-        pipeline.scheduler.set_timesteps(num_inference_steps)
+        added_cond_kwargs = {"resolution": resolution,
+                             "aspect_ratio": aspect_ratio}
         images = []
         for i, p in enumerate(prompt):
             generator = torch.Generator(
@@ -104,7 +106,8 @@ class StableDiffusionELLA(StableDiffusion):
             text_inputs = self.tokenizer(
                 p,
                 padding="max_length",
-                max_length=self.tokenizer.model_max_length,
+                add_special_tokens=True,
+                max_length=self.tokenizer_max_length,
                 return_tensors="pt", truncation=True)
             text_embeddings = self.text_encoder(
                 text_inputs.input_ids.to(self.device),
@@ -114,7 +117,8 @@ class StableDiffusionELLA(StableDiffusion):
             uncond_input = self.tokenizer(
                 "" if negative_prompt is None else negative_prompt,
                 padding="max_length",
-                max_length=self.tokenizer.model_max_length,
+                add_special_tokens=True,
+                max_length=self.tokenizer_max_length,
                 return_tensors="pt", truncation=True)
             # Convert the text embedding back to full precision
             uncond_embeddings = self.text_encoder(
@@ -125,22 +129,28 @@ class StableDiffusionELLA(StableDiffusion):
 
             # Latent preparation
             latents = randn_tensor(
-                (1, self.unet.in_channels, height // 8, width // 8),
+                (1, self.transformer.in_channels, height // 8, width // 8),
                 generator=generator, device=self.device)
             latents = latents * pipeline.scheduler.init_noise_sigma
 
             # Model prediction
+            pipeline.scheduler.set_timesteps(num_inference_steps)
             for t in pipeline.scheduler.timesteps:
                 latent_model_input = torch.cat([latents] * 2)
                 latent_model_input = pipeline.scheduler.scale_model_input(
                     latent_model_input, timestep=t)
-                encoder_hidden_states = self.adapter(text_embeddings, t)
-                noise_pred = self.unet(
-                    latent_model_input, t,
-                    encoder_hidden_states=encoder_hidden_states).sample
+                curr_t = t.reshape(1).repeat(2).to(self.device).to(self.weight_dtype)
+                encoder_hidden_states = self.adapter(text_embeddings, curr_t)
+                noise_pred = self.transformer(
+                    latent_model_input,
+                    encoder_attention_mask=None,
+                    encoder_hidden_states=encoder_hidden_states,
+                    timestep=curr_t,
+                    added_cond_kwargs=added_cond_kwargs).sample
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + guidance_scale * (
                     noise_pred_text - noise_pred_uncond)
+                noise_pred = noise_pred.chunk(2, dim=1)[0]
                 latents = pipeline.scheduler.step(
                     noise_pred, t, latents).prev_sample
 
@@ -196,8 +206,9 @@ class StableDiffusionELLA(StableDiffusion):
         if not self.pre_compute_text_embeddings:
             text_inputs = self.tokenizer(
                 inputs["text"],
-                max_length=self.tokenizer.model_max_length,
+                max_length=self.tokenizer_max_length,
                 padding="max_length",
+                add_special_tokens=True,
                 truncation=True,
                 return_tensors="pt")
             inputs["text"] = text_inputs.input_ids.to(self.device)
@@ -212,10 +223,18 @@ class StableDiffusionELLA(StableDiffusion):
         encoder_hidden_states = self.adapter(encoder_hidden_states,
                                              timesteps)
 
-        model_pred = self.unet(
+        if "resolution" in inputs:
+            added_cond_kwargs = {"resolution": inputs["resolution"],
+                                 "aspect_ratio": inputs["aspect_ratio"]}
+        else:
+            added_cond_kwargs = {"resolution": None, "aspect_ratio": None}
+
+        model_pred = self._forward_compile(
             inp_noisy_latents,
-            timesteps,
-            encoder_hidden_states=encoder_hidden_states).sample
+            encoder_attention_mask=None,
+            encoder_hidden_states=encoder_hidden_states,
+            timestep=timesteps,
+            added_cond_kwargs=added_cond_kwargs)
 
         return self.loss(model_pred, noise, latents, timesteps,
                          noisy_model_input, sigmas)

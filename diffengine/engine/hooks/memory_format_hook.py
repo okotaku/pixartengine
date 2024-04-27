@@ -36,6 +36,6 @@ class MemoryFormatHook(Hook):
         if is_model_wrapper(model):
             model = model.module
 
-        model.unet = model.unet.to(memory_format=self.memory_format)
+        model.transformer = model.transformer.to(memory_format=self.memory_format)
         if hasattr(model, "controlnet"):
             model.controlnet = model.controlnet.to(memory_format=self.memory_format)

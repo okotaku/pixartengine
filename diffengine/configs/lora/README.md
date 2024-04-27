@@ -45,28 +45,36 @@ Once you have trained a model, specify the path to the saved model and utilize i
 from pathlib import Path
 
 import torch
-from diffusers import DiffusionPipeline
+from diffusers import PixArtAlphaPipeline, AutoencoderKL
 from peft import PeftModel
 
-checkpoint = Path('work_dirs/stable_diffusion_v15_lora_pokemon_blip/step10450')
-prompt = 'yoda pokemon'
+checkpoint = Path('work_dirs/pixart_alpha_512_lora_pokemon/step20850')
+prompt = 'A water dragon'
 
-pipe = DiffusionPipeline.from_pretrained(
-    'runwayml/stable-diffusion-v1-5', torch_dtype=torch.float16)
-pipe.to('cuda')
-pipe.unet = PeftModel.from_pretrained(pipe.unet, checkpoint / "unet", adapter_name="default")
+vae = AutoencoderKL.from_pretrained(
+    'stabilityai/sd-vae-ft-ema',
+    torch_dtype=torch.bfloat16,
+)
+pipe = PixArtAlphaPipeline.from_pretrained(
+    "PixArt-alpha/PixArt-XL-2-512x512",
+    vae=vae,
+    torch_dtype=torch.bfloat16,
+).to("cuda")
+pipe.transformer = PeftModel.from_pretrained(pipe.transformer, checkpoint / "transformer", adapter_name="default")
 
-image = pipe(
+img = pipe(
     prompt,
-    num_inference_steps=50,
+    width=512,
+    height=512,
+    num_inference_steps=20,
 ).images[0]
-image.save('demo.png')
+img.save("demo.png")
 ```
 
 You can see more details on [LoRA docs](../../docs/source/run_guides/run_lora.md#inference-with-diffusers).
 
 ## Results Example
 
-#### stable_diffusion_v15_lora_pokemon_blip
+#### pixart_alpha_512_lora_pokemon
 
-![example1](https://github.com/okotaku/diffengine/assets/24734142/24899409-554d-4393-88e5-f8b8d6e6b36d)
+![example1](<>)

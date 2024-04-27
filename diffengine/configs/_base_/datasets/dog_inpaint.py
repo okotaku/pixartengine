@@ -4,18 +4,19 @@ from mmengine.dataset import InfiniteSampler
 from diffengine.datasets import HFDreamBoothDataset
 from diffengine.datasets.transforms import (
     DumpImage,
+    DumpMaskedImage,
     GetMaskedImage,
     LoadMask,
     MaskToTensor,
     PackInputs,
     RandomCrop,
     RandomHorizontalFlip,
+    T5TextPreprocess,
     TorchVisonTransformWrapper,
 )
 from diffengine.engine.hooks import (
     CheckpointHook,
     CompileHook,
-    MemoryFormatHook,
     VisualizationHook,
 )
 
@@ -38,7 +39,9 @@ train_pipeline = [
     dict(type=DumpImage, max_imgs=10, dump_dir="work_dirs/dump"),
     dict(type=TorchVisonTransformWrapper,
          transform=torchvision.transforms.Normalize, mean=[0.5], std=[0.5]),
+    dict(type=T5TextPreprocess),
     dict(type=GetMaskedImage),
+    dict(type=DumpMaskedImage, max_imgs=10, dump_dir="work_dirs/dump"),
     dict(type=PackInputs,
          input_keys=["img", "mask", "masked_image", "text"]),
 ]
@@ -69,6 +72,5 @@ custom_hooks = [
         height=512,
         interval=100),
     dict(type=CheckpointHook),
-    dict(type=MemoryFormatHook),
     dict(type=CompileHook),
 ]
