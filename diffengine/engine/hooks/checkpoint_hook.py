@@ -29,12 +29,10 @@ class CheckpointHook(Hook):
         new_ckpt = OrderedDict()
         sd_keys = checkpoint["state_dict"].keys()
         for k in sd_keys:
-            if not checkpoint["state_dict"][k].requires_grad:
-                continue
             new_k = k.replace("._orig_mod", "")
-            if k.startswith(("transformer", "adapter")):
+            if new_k.startswith(("transformer", "adapter")):
                 new_ckpt[new_k] = checkpoint["state_dict"][k]
-            elif k.startswith("text_encoder") and hasattr(
+            elif new_k.startswith("text_encoder") and hasattr(
                     model,
                     "finetune_text_encoder",
             ) and model.finetune_text_encoder:
