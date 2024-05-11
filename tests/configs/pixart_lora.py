@@ -3,6 +3,7 @@ from diffusers import (
     DDPMScheduler,
     Transformer2DModel,
 )
+from peft import LoraConfig
 from transformers import T5EncoderModel, T5Tokenizer
 
 from diffengine.models.editors import PixArt
@@ -36,4 +37,10 @@ model = dict(
                 num_embeds_ada_norm=1000,
                 norm_type="ada_norm_single",
                 norm_elementwise_affine=False,
-                norm_eps=1e-6))
+                norm_eps=1e-6),
+            transformer_lora_config = dict(
+                    type=LoraConfig, r=4,
+                    target_modules=["to_q", "to_v", "to_k", "to_out.0"]),
+            text_encoder_lora_config = dict(
+                    type=LoraConfig, r=4,
+                    target_modules=["q", "k", "v", "o"]))

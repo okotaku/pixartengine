@@ -112,10 +112,10 @@ class TestEMAHook(RunnerTestCase):
             if key.startswith("transformer."):
                 assert_allclose(
                     ori_checkpoint["state_dict"][key].cpu(),
-                    checkpoint["ema_state_dict"][f"module.{key[5:]}"].cpu())
+                    checkpoint["ema_state_dict"][f"module.{key[12:]}"].cpu())
 
                 assert_allclose(
-                    ema_hook.ema_model.state_dict()[f"module.{key[5:]}"].cpu(),
+                    ema_hook.ema_model.state_dict()[f"module.{key[12:]}"].cpu(),
                     checkpoint["state_dict"][key].cpu())
 
     def test_after_load_checkpoint(self):
@@ -133,7 +133,7 @@ class TestEMAHook(RunnerTestCase):
             if key.startswith("transformer."):
                 assert_allclose(
                     checkpoint["state_dict"][key].cpu(),
-                    ema_hook.ema_model.state_dict()[f"module.{key[5:]}"].cpu())
+                    ema_hook.ema_model.state_dict()[f"module.{key[12:]}"].cpu())
 
         # Test a warning should be raised when resuming from a checkpoint
         # without `ema_state_dict`
@@ -156,7 +156,7 @@ class TestEMAHook(RunnerTestCase):
             if key.startswith("transformer."):
                 assert_allclose(
                     ori_checkpoint["state_dict"][key].cpu(),
-                    ema_hook.ema_model.state_dict()[f"module.{key[5:]}"].cpu())
+                    ema_hook.ema_model.state_dict()[f"module.{key[12:]}"].cpu())
 
         runner._resume = False
         ema_hook.after_load_checkpoint(runner, checkpoint)

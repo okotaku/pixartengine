@@ -157,20 +157,22 @@ class PixArtInpaint(PixArt):
             mask_image = mask_image.convert("L").resize((width, height))
             mask_image = (
                 np.array(mask_image)[..., np.newaxis] / 255) > mask_threshold
-            masked_image = np.array(pil_img) * (mask_image < mask_threshold)
 
-            masked_image = pipeline.image_processor.preprocess(
-                masked_image,
+            vae_img = pipeline.image_processor.preprocess(
+                pil_img,
                 height=height,
                 width=width,
-            ).to(self.device).to(self.weight_dtype)
+            )
+            mask_image = torch.Tensor(mask_image).permute(
+                    2, 0, 1)[None, ...]
+            masked_image = vae_img * (mask_image < mask_threshold)
+            masked_image = masked_image.to(self.device).to(self.weight_dtype)
             masked_image_latents = retrieve_latents(
                 self.vae.encode(masked_image), generator=generator,
             ) * self.vae.config.scaling_factor
             masked_image_latents = torch.cat([masked_image_latents] * 2)
             mask = F.interpolate(
-                torch.Tensor(mask_image).permute(
-                    2, 0, 1)[None, ...].to(self.device).to(self.weight_dtype),
+                mask_image.to(self.device).to(self.weight_dtype),
                 size=(masked_image_latents.shape[2],
                         masked_image_latents.shape[3]))
             mask = torch.cat([mask] * 2)

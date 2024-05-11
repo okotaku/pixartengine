@@ -40,7 +40,7 @@ class TestPeftSaveHook(RunnerTestCase):
     def test_before_save_checkpoint(self):
         # with text encoder
         cfg = copy.deepcopy(self.epoch_based_cfg)
-        cfg.model = Config.fromfile("tests/configs/sd_lora.py").model
+        cfg.model = Config.fromfile("tests/configs/pixart_lora.py").model
         runner = self.build_runner(cfg)
         checkpoint = dict(
             state_dict=MODELS.build(cfg.model).state_dict())
