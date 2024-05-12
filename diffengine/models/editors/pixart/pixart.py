@@ -73,7 +73,7 @@ class PixArt(BaseModel):
         enable_xformers (bool): Whether or not to enable memory efficient
             attention. Defaults to False.
         enable_vb_loss (bool): Whether or not to enable variational bound loss.
-            Defaults to True.
+            Defaults to False.
 
     """
 
@@ -101,7 +101,7 @@ class PixArt(BaseModel):
         gradient_checkpointing: bool = False,
         pre_compute_text_embeddings: bool = False,
         enable_xformers: bool = False,
-        enable_vb_loss: bool = True,
+        enable_vb_loss: bool = False,
     ) -> None:
         if data_preprocessor is None:
             data_preprocessor = {"type": DataPreprocessor}

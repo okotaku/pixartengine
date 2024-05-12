@@ -23,7 +23,7 @@ class CompileHook(Hook):
         self.backend = backend
         self.mode = mode
 
-    def before_train(self, runner: Runner) -> None:
+    def before_train(self, runner: Runner) -> None:  # noqa: C901
         """Compile the model.
 
         Args:
@@ -64,3 +64,9 @@ class CompileHook(Hook):
         if hasattr(model, "target_transformer"):
             model.target_transformer = torch.compile(
                 model.target_transformer, backend=self.backend, mode=self.mode)
+        if hasattr(model, "transformer_real"):
+            model.transformer_real = torch.compile(
+                model.transformer_real, backend=self.backend, mode=self.mode)
+        if hasattr(model, "transformer_fake"):
+            model.transformer_fake = torch.compile(
+                model.transformer_fake, backend=self.backend, mode=self.mode)

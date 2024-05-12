@@ -4,7 +4,17 @@ from torch import nn
 
 
 class TimeSteps(nn.Module):
-    """Time Steps module."""
+    """Time Steps module.
+
+    Args:
+    ----
+        start_time_steps (int, optional): Constant time. Defaults to 999.
+
+    """
+
+    def __init__(self, start_time_steps: int | None = None) -> None:
+        super().__init__()
+        self.start_time_steps = start_time_steps
 
     def forward(self, scheduler: DDPMScheduler, num_batches: int, device: str,
                 ) -> torch.Tensor:
@@ -21,7 +31,9 @@ class TimeSteps(nn.Module):
         """
         timesteps = torch.randint(
             0,
-            scheduler.config.num_train_timesteps, (num_batches, ),
+            scheduler.config.num_train_timesteps if (
+                self.start_time_steps is None) else self.start_time_steps,
+            (num_batches, ),
             device=device)
         return timesteps.long()
 
@@ -277,4 +289,38 @@ class DDIMTimeSteps(nn.Module):
                               (num_batches,),
                               device=device)
         timesteps = self.ddim_timesteps[index] * step_ratio - 1
+        return timesteps.long()
+
+
+class ConstantTimeSteps(nn.Module):
+    """Conctant Time Steps module.
+
+    Args:
+    ----
+        constant_time (int): Constant time. Defaults to 999.
+
+    """
+
+    def __init__(self, constant_time: int = 400) -> None:
+        super().__init__()
+        self.constant_time = constant_time
+
+    def forward(self, scheduler: DDPMScheduler,  # noqa: ARG002
+                num_batches: int, device: str,
+                ) -> torch.Tensor:
+        """Forward pass.
+
+        Generates time steps for the given batches.
+
+        Args:
+        ----
+            scheduler (DDPMScheduler): Scheduler for training diffusion model.
+            num_batches (int): Batch size.
+            device (str): Device.
+
+        """
+        timesteps = torch.full(
+            (num_batches, ),
+            self.constant_time,
+            device=device)
         return timesteps.long()
